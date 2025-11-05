@@ -200,20 +200,35 @@ function handleOri(e) {
   let gx = e.gamma || 0; // nghiêng trái/phải
   let gy = e.beta || 0;  // nghiêng trước/sau
 
-  // Hiệu chỉnh theo hướng xoay màn hình
+  // Lấy góc xoay màn hình (trên iOS có thể là undefined)
+  let angle = 0;
+  if (screen.orientation && typeof screen.orientation.angle === 'number') {
+    angle = screen.orientation.angle;
+  } else if (typeof window.orientation === 'number') {
+    angle = window.orientation;
+  }
+
+  // Chuẩn hóa giá trị góc (đề phòng thiết bị trả -90)
+  if (angle === -90) angle = 270;
+
+  // Hiệu chỉnh theo hướng xoay
   let tx = gx, ty = gy;
-  switch (orientation) {
+  switch (angle) {
+    case 0: // dọc
+      tx = gx;
+      ty = gy;
+      break;
     case 90: // xoay ngang trái
       tx = gy;
       ty = -gx;
       break;
-    case -90: // xoay ngang phải
-      tx = -gy;
-      ty = gx;
-      break;
     case 180: // lật ngược
       tx = -gx;
       ty = -gy;
+      break;
+    case 270: // xoay ngang phải
+      tx = -gy;
+      ty = gx;
       break;
   }
 
@@ -223,8 +238,9 @@ function handleOri(e) {
 
   // Giới hạn và bù góc
   tiltY = Math.max(-MAX_TILT, Math.min(MAX_TILT, smoothX));
-  tiltX = Math.max(-MAX_TILT, Math.min(MAX_TILT, smoothY - 40)); // giảm bù góc
-  render();
+  tiltX = Math.max(-MAX_TILT, Math.min(MAX_TILT, smoothY - 40)); // giảm bù góc dọc
+
+  needRender = true;
 }
 
 // -------- Fallback TOUCH --------
