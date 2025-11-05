@@ -3,200 +3,136 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Quan sát 3D - Nghiêng điện thoại hoặc di chuột</title>
+  <title>3D Viewer - Ảnh TO 250%</title>
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    body, html { height: 100%; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #000; cursor: grab; }
-    body:active { cursor: grabbing; }
-
-    #container {
-      perspective: 1200px;
-      width: 100vw; height: 100vh;
-      position: relative;
-      transform-style: preserve-3d;
-      transition: transform 0.12s ease-out; /* mượt hơn */
-    }
-
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body, html { height:100%; overflow:hidden; background:#000; font-family:sans-serif; }
+    #container { perspective:1200px; width:100vw; height:100vh; transform-style:preserve-3d; transition:transform .1s ease-out; }
+    
+    /* [ẢNH TO HƠN 250%] */
     .layer {
-      position: absolute;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%) translateZ(0) scale(1);
-      width: 90vw; max-width: 420px;
-      box-shadow: 0 0 40px rgba(0,0,0,0.9);
-      border-radius: 16px;
-      opacity: 0;
-      transition: opacity 0.6s ease;
-      user-select: none; pointer-events: none;
+      position:absolute; top:50%; left:50%;
+      transform: translate(-50%,-50%) translateZ(0) scale(1);
+      width: 225vw;           /* 90vw × 2.5 = 225vw */
+      max-width: 1050px;      /* 420px × 2.5 = 1050px */
+      border-radius: 24px;    /* Bo góc lớn hơn cho phù hợp */
+      box-shadow: 0 0 60px rgba(0,0,0,0.9);
+      opacity:0; transition:opacity .6s;
     }
-
     .layer img {
-      width: 100%; height: auto; display: block;
-      border-radius: 16px;
-      -webkit-user-drag: none;
+      width:100%; height:auto; display:block;
+      border-radius: 24px;
+      image-rendering: -webkit-optimize-contrast; /* Giữ nét khi phóng to */
     }
+    .layer.visible { opacity:1; }
 
-    .layer.visible { opacity: 1; }
-
-    /* Thông báo xoay ngang (mobile) */
-    #orientation-warning {
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-      background: rgba(0,0,0,0.95); color: white;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      z-index: 9999; text-align: center; padding: 20px; font-size: 1.3em;
+    /* THÔNG BÁO XOAY NGANG */
+    #warning {
+      position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,.95); color:#fff;
+      display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:20px; z-index:9999;
     }
+    #warning svg { width:60px; height:60px; margin-bottom:15px; animation:spin 1.5s infinite linear; }
+    @keyframes spin { to { transform:rotate(90deg); } }
 
-    #orientation-warning svg { width: 70px; height: 70px; margin-bottom: 20px; animation: rotate 2s infinite linear; }
-    @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(90deg); } }
+    .landscape #warning { display:none; }
+    .portrait #container { display:none; }
 
-    @media (orientation: landscape) { #orientation-warning { display: none; } }
-    @media (orientation: portrait) { #container { display: none; } }
-    @media (hover: hover) and (pointer: fine) { #orientation-warning { display: none !important; } #container { display: block !important; } }
-
-    #mouse-hint {
-      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-      color: rgba(255,255,255,0.7); font-size: 0.9em; background: rgba(0,0,0,0.5);
-      padding: 8px 16px; border-radius: 20px; pointer-events: none; opacity: 0;
-      transition: opacity 0.3s; z-index: 100;
-    }
-    #mouse-hint.show { opacity: 1; }
+    #mouse-hint { position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.6); color:#fff; padding:8px 16px; border-radius:20px; font-size:14px; opacity:0; transition:.3s; pointer-events:none; }
+    #mouse-hint.show { opacity:1; }
   </style>
 </head>
-<body>
+<body class="portrait">
 
-  <div id="orientation-warning">
-    <svg viewBox="0 0 24 24" fill="white">
-      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
-      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
-    </svg>
+  <div id="warning">
+    <svg viewBox="0 0 24 24" fill="white"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/></svg>
     <h2>Xoay điện thoại ngang</h2>
-    <p>Di chuyển chuột hoặc nghiêng điện thoại để xem 3D</p>
+    <p><strong>Nhấn màn hình</strong> để kích hoạt 3D</p>
   </div>
 
-  <div id="mouse-hint">Di chuột để xoay góc nhìn 3D</div>
-
+  <div id="mouse-hint">Di chuột để xoay</div>
   <div id="container"></div>
 
   <script>
     const container = document.getElementById('container');
-    const mouseHint = document.getElementById('mouse-hint');
     const layers = [];
     const totalLayers = 5;
 
-    // === CÀI ĐẶT MỚI ===
-    const depthStep = 120;     // Giảm từ 220 → 120px (layer gần nhau hơn)
-    const scaleFactor = 0.18;  // Layer càng xa → to hơn 18%
+    // === [CÀI ĐẶT DỄ CHỈNH] ===
+    const DEPTH_STEP = 100;     // Khoảng cách layer
+    const SCALE_FACTOR = 0.2;   // Layer xa to hơn
+    const MAX_TILT = 35;        // Góc nghiêng
 
     // Tạo layer
     for (let i = 1; i <= totalLayers; i++) {
-      const layer = document.createElement('div');
-      layer.className = 'layer';
-      const img = document.createElement('img');
+      const div = document.createElement('div');
+      div.className = 'layer';
+      const img = new Image();
       img.src = `img${i}.png`;
-      img.alt = `Layer ${i}`;
       img.draggable = false;
-      layer.appendChild(img);
-      container.appendChild(layer);
+      div.appendChild(img);
+      container.appendChild(div);
 
-      // Tính Z và scale
-      const z = (i - 3) * depthStep; // img1: -240, img2: -120, img3: 0, img4: +120, img5: +240
-      const distance = Math.abs(z);
-      const scale = 1 + (distance / 1000) * scaleFactor; // xa hơn → to hơn
-
-      layer.style.transform = `translate(-50%, -50%) translateZ(${z}px) scale(${scale})`;
-      layers.push({ el: layer, z, scale });
+      const z = (i - 3) * DEPTH_STEP;
+      const scale = 1 + Math.abs(z)/1000 * SCALE_FACTOR;
+      div.style.transform = `translate(-50%,-50%) translateZ(${z}px) scale(${scale})`;
+      layers.push(div);
     }
 
-    // Hiển thị dần
-    setTimeout(() => {
-      layers.forEach((l, i) => {
-        setTimeout(() => l.el.classList.add('visible'), i * 160);
-      });
-    }, 400);
+    setTimeout(() => layers.forEach((l,i) => setTimeout(() => l.classList.add('visible'), i*150)), 300);
 
-    // === PHÁT HIỆN THIẾT BỊ ===
-    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-    const hasTouch = 'ontouchstart' in window;
-    const isDesktop = !isMobile && !hasTouch;
+    // === XOAY MÀN HÌNH ===
+    function checkOrientation() {
+      document.body.className = window.innerHeight < window.innerWidth ? 'landscape' : 'portrait';
+    }
+    window.addEventListener('orientationchange', checkOrientation);
+    window.addEventListener('resize', checkOrientation);
+    checkOrientation();
 
-    let isAuthorized = false;
-
-    // === CẢM BIẾN (MOBILE) ===
-    function requestSensorPermission() {
+    // === MOBILE: CẢM BIẾN ===
+    let sensorEnabled = false;
+    function enableSensor() {
+      if (sensorEnabled) return;
       if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-        DeviceOrientationEvent.requestPermission()
-          .then(state => {
-            if (state === 'granted') {
-              isAuthorized = true;
-              window.addEventListener('deviceorientation', handleOrientation);
-            }
-          })
-          .catch(console.error);
+        DeviceOrientationEvent.requestPermission().then(res => {
+          if (res === 'granted') { sensorEnabled = true; startSensor(); }
+        });
       } else {
-        isAuthorized = true;
-        window.addEventListener('deviceorientation', handleOrientation);
+        sensorEnabled = true; startSensor();
       }
     }
 
-    function handleOrientation(event) {
-      if (!isAuthorized || isDesktop || window.innerHeight > window.innerWidth) return;
-      const { beta, gamma } = event;
-      if (beta === null || gamma === null) return;
-
-      const tiltX = Math.max(-38, Math.min(38, gamma));
-      const tiltY = Math.max(-38, Math.min(38, beta - 45));
-      updateView(tiltX, -tiltY);
-    }
-
-    // === CHUỘT (DESKTOP) ===
-    function handleMouseMove(e) {
-      if (!isDesktop) return;
-      const rect = container.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-
-      const mouseX = ((e.clientX - centerX) / centerX) * 38;
-      const mouseY = ((e.clientY - centerY) / centerY) * 38;
-
-      updateView(mouseX, mouseY);
-    }
-
-    function updateView(rotY, rotX) {
-      container.style.transform = `rotateY(${rotY}deg) rotateX(${rotX}deg)`;
-    }
-
-    function resetView() {
-      if (isDesktop) container.style.transform = 'rotateY(0deg) rotateX(0deg)';
-    }
-
-    // === KÍCH HOẠT THEO THIẾT BỊ ===
-    if (isDesktop) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseleave', resetView);
-      setTimeout(() => mouseHint.classList.add('show'), 1000);
-      setTimeout(() => mouseHint.classList.remove('show'), 5000);
-    } else {
-      document.body.addEventListener('click', () => {
-        if (!isAuthorized) requestSensorPermission();
-      }, { once: true });
-
-      window.addEventListener('orientationchange', () => {
-        setTimeout(() => {
-          if (window.matchMedia("(orientation: landscape)").matches && !isAuthorized) {
-            alert("Nhấn màn hình để kích hoạt cảm biến 3D");
-          }
-        }, 600);
+    function startSensor() {
+      window.addEventListener('deviceorientation', e => {
+        if (!sensorEnabled || window.innerHeight > window.innerWidth) return;
+        const x = Math.max(-MAX_TILT, Math.min(MAX_TILT, e.gamma));
+        const y = Math.max(-MAX_TILT, Math.min(MAX_TILT, e.beta - 45));
+        container.style.transform = `rotateY(${x}deg) rotateX(${-y}deg)`;
       });
-
-      if (window.matchMedia("(orientation: landscape)").matches) {
-        setTimeout(() => {
-          if (!isAuthorized) alert("Nhấn màn hình để trải nghiệm 3D");
-        }, 1000);
-      }
     }
 
-    window.addEventListener('resize', () => {
-      if (isDesktop) resetView();
-    });
+    document.body.addEventListener('touchstart', () => {
+      if (!sensorEnabled) enableSensor();
+    }, { once: true });
+
+    // === DESKTOP: CHUỘT ===
+    const isDesktop = !/Mobi|Android|iPhone/i.test(navigator.userAgent);
+    if (isDesktop) {
+      document.addEventListener('mousemove', e => {
+        const rect = container.getBoundingClientRect();
+        const cx = rect.left + rect.width/2;
+        const cy = rect.top + rect.height/2;
+        const x = ((e.clientX - cx) / cx) * MAX_TILT;
+        const y = ((e.clientY - cy) / cy) * MAX_TILT;
+        container.style.transform = `rotateY(${x}deg) rotateX(${y}deg)`;
+      });
+      document.addEventListener('mouseleave', () => container.style.transform = '');
+      setTimeout(() => document.getElementById('mouse-hint').classList.add('show'), 1000);
+      setTimeout(() => document.getElementById('mouse-hint').classList.remove('show'), 5000);
+    }
+
+    if (window.innerHeight < window.innerWidth && !sensorEnabled) {
+      setTimeout(() => alert("Nhấn màn hình để bắt đầu 3D"), 800);
+    }
   </script>
 </body>
 </html>
