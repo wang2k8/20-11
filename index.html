@@ -1,307 +1,202 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
-<title>Tri Ân Thầy Cô — Demo</title>
-<style>
-  :root{
-    --bg:#000;
-    --white: #fff;
-    --glass: rgba(255,255,255,0.08);
-  }
-  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-  html,body{height:100%;margin:0;background:var(--bg);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;color:var(--white)}
-  .wrap{position:relative;width:100vw;height:100vh;overflow:hidden;display:flex;align-items:center;justify-content:center}
-  /* Loading */
-  #loading{position:absolute;inset:0;z-index:30;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(180deg,#0b0b0b,#050505)}
-  .loader-ring{position:relative;width:140px;height:140px;border-radius:50%;display:flex;align-items:center;justify-content:center}
-  /* viền nhỏ hẹp hơn (30% nhỏ hơn) */
-  .loader-ring::before{content:"";position:absolute;width:150px;height:150px;border-radius:50%;
-    border:4px solid transparent;border-top-color:rgba(255,255,255,0.98);border-right-color:rgba(255,255,255,0.7);
-    animation:spin 1.35s linear infinite;filter:drop-shadow(0 0 8px rgba(255,255,255,0.12))}
-  #icon{width:110px;height:110px;border-radius:50%;object-fit:cover;z-index:2}
-  #loading p{margin-top:18px;font-size:15px;opacity:0.85}
-  @keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Quan sát 3D - Nghiêng điện thoại hoặc di chuột</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body, html { height: 100%; overflow: hidden; font-family: 'Segoe UI', sans-serif; background: #000; cursor: grab; }
+    body:active { cursor: grabbing; }
 
-  /* video full-screen */
-  video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:transparent;display:none;-webkit-user-select:none;user-select:none}
+    #container {
+      perspective: 1200px;
+      width: 100vw; height: 100vh;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 0.12s ease-out; /* mượt hơn */
+    }
 
-  /* transparent round button */
-  .btn{position:absolute;width:86px;height:86px;border-radius:50%;border:2px solid rgba(255,255,255,0.55);background:var(--glass);display:flex;align-items:center;justify-content:center;font-size:28px;color:var(--white);backdrop-filter:blur(8px);box-shadow:0 4px 24px rgba(0,0,0,0.6);cursor:pointer;opacity:0;transform:scale(0.72);transition:opacity .45s ease,transform .45s cubic-bezier(.2,.9,.3,1);z-index:40}
-  .btn.show{opacity:1;transform:scale(1)}
-  #btnSwipe{bottom:14%}
-  #btnCenter{top:44%}
+    .layer {
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%) translateZ(0) scale(1);
+      width: 90vw; max-width: 420px;
+      box-shadow: 0 0 40px rgba(0,0,0,0.9);
+      border-radius: 16px;
+      opacity: 0;
+      transition: opacity 0.6s ease;
+      user-select: none; pointer-events: none;
+    }
 
-  /* overlay big play when autoplay blocked */
-  #tapToStart{position:absolute;inset:0;display:none;z-index:60;align-items:center;justify-content:center;flex-direction:column;background:linear-gradient(180deg,rgba(0,0,0,0.35),rgba(0,0,0,0.6))}
-  #tapToStart .big{width:130px;height:130px;border-radius:50%;background:linear-gradient(135deg,#ffb6ff,#bfe9ff);display:flex;align-items:center;justify-content:center;font-size:34px;color:#111;box-shadow:0 10px 30px rgba(0,0,0,0.5);cursor:pointer}
-  #tapToStart p{color:rgba(255,255,255,0.95);margin-top:18px;text-align:center;padding:0 20px}
+    .layer img {
+      width: 100%; height: auto; display: block;
+      border-radius: 16px;
+      -webkit-user-drag: none;
+    }
 
-  /* error box */
-  #errorBox{position:fixed;left:12px;right:12px;top:18px;padding:12px 14px;background:#2b0000;border-radius:10px;color:#ffd7d7;z-index:80;display:none}
+    .layer.visible { opacity: 1; }
 
-  /* rotate warning when landscape */
-  @media (orientation:landscape){
-    #loading, video, .btn, #tapToStart {display:none!important}
-    body::after{content:"⚠️ Vui lòng xoay điện thoại dọc để xem";position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.6);color:white;padding:18px;border-radius:12px;z-index:999}
-  }
+    /* Thông báo xoay ngang (mobile) */
+    #orientation-warning {
+      position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.95); color: white;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      z-index: 9999; text-align: center; padding: 20px; font-size: 1.3em;
+    }
 
-  /* small hint when button visible */
-  .hint{position:absolute;bottom:7%;left:50%;transform:translateX(-50%);color:rgba(255,255,255,0.85);font-size:13px;z-index:39;opacity:0;transition:opacity .35s}
-  .hint.show{opacity:1}
-</style>
+    #orientation-warning svg { width: 70px; height: 70px; margin-bottom: 20px; animation: rotate 2s infinite linear; }
+    @keyframes rotate { from { transform: rotate(0deg); } to { transform: rotate(90deg); } }
+
+    @media (orientation: landscape) { #orientation-warning { display: none; } }
+    @media (orientation: portrait) { #container { display: none; } }
+    @media (hover: hover) and (pointer: fine) { #orientation-warning { display: none !important; } #container { display: block !important; } }
+
+    #mouse-hint {
+      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+      color: rgba(255,255,255,0.7); font-size: 0.9em; background: rgba(0,0,0,0.5);
+      padding: 8px 16px; border-radius: 20px; pointer-events: none; opacity: 0;
+      transition: opacity 0.3s; z-index: 100;
+    }
+    #mouse-hint.show { opacity: 1; }
+  </style>
 </head>
 <body>
-  <div class="wrap">
-    <div id="loading" aria-hidden="false">
-      <div class="loader-ring"><img id="icon" src="icon.png" alt="icon"></div>
-      <p>Đang tải — xin chờ chút...</p>
-    </div>
 
-    <video id="video" playsinline preload="auto" muted webkit-playsinline></video>
-
-    <!-- buttons (hidden until needed) -->
-    <button id="btnSwipe" class="btn" aria-hidden="true">⬇</button>
-    <button id="btnCenter" class="btn" aria-hidden="true">✨</button>
-
-    <div id="tapToStart" role="button" aria-hidden="true">
-      <div class="big">▶</div>
-      <p>Chạm để bắt đầu — một lần chạm sẽ mở video và âm nhạc</p>
-    </div>
-
-    <div id="errorBox"></div>
-    <div class="hint" id="hint">Chạm để bật âm thanh</div>
-
-    <!-- hidden audio -->
-    <audio id="music" loop preload="auto"></audio>
+  <div id="orientation-warning">
+    <svg viewBox="0 0 24 24" fill="white">
+      <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"/>
+    </svg>
+    <h2>Xoay điện thoại ngang</h2>
+    <p>Di chuyển chuột hoặc nghiêng điện thoại để xem 3D</p>
   </div>
 
-<script>
-/*
-  Robust single-file player behavior:
-  - show loading 3.5s OR until canplaythrough (whichever later)
-  - try autoplay (video muted). Start music too.
-  - if autoplay blocked, show big "Tap to Start"
-  - pause at checkpoints [5,10]s -> show transparent round button only at that moment
-  - when button visible and no interaction, fade music down
-  - clicking anywhere restores music volume
-  - retry loading video/audio up to RETRY_LIMIT times if errors
-*/
+  <div id="mouse-hint">Di chuột để xoay góc nhìn 3D</div>
 
-(() => {
-  const VIDEO_SRC = 'part1.mp4';
-  const MUSIC_SRC = 'nhac.mp3';
-  const ICON = 'icon.png';
-  const CHECKPOINTS = [5, 10]; // seconds
-  const LOADING_MIN = 3500; // ms
-  const RETRY_LIMIT = 3;
-  const VIDEO = document.getElementById('video');
-  const MUSIC = document.getElementById('music');
-  const loadingEl = document.getElementById('loading');
-  const btnSwipe = document.getElementById('btnSwipe');
-  const btnCenter = document.getElementById('btnCenter');
-  const tapToStart = document.getElementById('tapToStart');
-  const errorBox = document.getElementById('errorBox');
-  const hint = document.getElementById('hint');
+  <div id="container"></div>
 
-  let retryCount = 0;
-  let lastCanPlay = false;
-  let checkpointsShown = new Set();
-  let fadeAnim = null;
+  <script>
+    const container = document.getElementById('container');
+    const mouseHint = document.getElementById('mouse-hint');
+    const layers = [];
+    const totalLayers = 5;
 
-  // set sources
-  VIDEO.src = VIDEO_SRC;
-  MUSIC.src = MUSIC_SRC;
+    // === CÀI ĐẶT MỚI ===
+    const depthStep = 120;     // Giảm từ 220 → 120px (layer gần nhau hơn)
+    const scaleFactor = 0.18;  // Layer càng xa → to hơn 18%
 
-  // helper: show error
-  function showError(msg){
-    errorBox.style.display = 'block';
-    errorBox.textContent = 'Lỗi tải: ' + msg + ' — Nhấn vào đây để thử lại';
-    errorBox.onclick = () => { errorBox.style.display='none'; retryAll(); };
-    console.error(msg);
-  }
+    // Tạo layer
+    for (let i = 1; i <= totalLayers; i++) {
+      const layer = document.createElement('div');
+      layer.className = 'layer';
+      const img = document.createElement('img');
+      img.src = `img${i}.png`;
+      img.alt = `Layer ${i}`;
+      img.draggable = false;
+      layer.appendChild(img);
+      container.appendChild(layer);
 
-  // retry function with cache-bust
-  function retryAll(){
-    retryCount++;
-    if (retryCount > RETRY_LIMIT) {
-      showError('Không thể tải media sau nhiều lần thử. Kiểm tra kết nối hoặc thay file.');
-      return;
+      // Tính Z và scale
+      const z = (i - 3) * depthStep; // img1: -240, img2: -120, img3: 0, img4: +120, img5: +240
+      const distance = Math.abs(z);
+      const scale = 1 + (distance / 1000) * scaleFactor; // xa hơn → to hơn
+
+      layer.style.transform = `translate(-50%, -50%) translateZ(${z}px) scale(${scale})`;
+      layers.push({ el: layer, z, scale });
     }
-    const cb = `?cb=${Date.now()}`;
-    VIDEO.src = VIDEO_SRC + cb;
-    MUSIC.src = MUSIC_SRC + cb;
-    // attempt reload
-    VIDEO.load();
-    MUSIC.load();
-    attemptPlay();
-  }
 
-  // fade music volume smoothly to target (0..1) using rAF
-  function fadeMusicTo(target, duration = 600){
-    cancelFade();
-    const start = performance.now();
-    const from = MUSIC.volume || 0;
-    const dv = target - from;
-    function step(t){
-      const p = Math.min(1, (t - start) / duration);
-      MUSIC.volume = Math.max(0, Math.min(1, from + dv * p));
-      if (p < 1) fadeAnim = requestAnimationFrame(step);
-      else fadeAnim = null;
-    }
-    fadeAnim = requestAnimationFrame(step);
-  }
-  function cancelFade(){
-    if (fadeAnim) { cancelAnimationFrame(fadeAnim); fadeAnim = null; }
-  }
-
-  // attempt autoplay: video muted first (helps mobile), try music too.
-  async function attemptPlay(){
-    try {
-      VIDEO.muted = true; // help autoplay
-      await VIDEO.play();
-      // try play music (may be blocked)
-      try { await MUSIC.play(); } catch(e) { console.log('music play blocked, will wait for user gesture'); hint.classList.add('show'); }
-      // unmute video only after user gesture — keep muted to avoid autoplay policy on some devices
-      onReadyToShow();
-    } catch (err) {
-      console.log('autoplay blocked for video, show tapToStart', err);
-      tapToStart.style.display = 'flex';
-      tapToStart.setAttribute('aria-hidden','false');
-    }
-  }
-
-  // called when we decide to hide loading and show video
-  function onReadyToShow(){
-    // ensure minimum loading time
+    // Hiển thị dần
     setTimeout(() => {
-      // hide loading with smooth opacity
-      loadingEl.style.transition = 'opacity .55s ease';
-      loadingEl.style.opacity = '0';
-      setTimeout(() => { loadingEl.remove(); }, 600);
-      VIDEO.style.display = 'block';
-      // try to unmute music gradually if it already playing
-      if (!MUSIC.paused) { MUSIC.volume = 0.9; }
-    }, Math.max(0, LOADING_MIN - (Date.now() - startTime)));
-  }
+      layers.forEach((l, i) => {
+        setTimeout(() => l.el.classList.add('visible'), i * 160);
+      });
+    }, 400);
 
-  // when canplaythrough (video buffered enough)
-  VIDEO.addEventListener('canplaythrough', () => {
-    lastCanPlay = true;
-    // if loading min time passed, attempt play
-    if (Date.now() - startTime >= LOADING_MIN) attemptPlay();
-  });
+    // === PHÁT HIỆN THIẾT BỊ ===
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const hasTouch = 'ontouchstart' in window;
+    const isDesktop = !isMobile && !hasTouch;
 
-  // handle video errors
-  VIDEO.addEventListener('error', (e) => {
-    console.error('video error', e);
-    retryAll();
-  });
-  MUSIC.addEventListener('error', (e) => {
-    console.error('music error', e);
-    // music can be optional: show hint to user
-    hint.classList.add('show');
-  });
+    let isAuthorized = false;
 
-  // if tapToStart clicked: try to play/unmute fully
-  tapToStart.addEventListener('click', async () => {
-    tapToStart.style.display = 'none';
-    try {
-      VIDEO.muted = false;
-      await VIDEO.play();
-      await MUSIC.play();
-      hint.classList.remove('show');
-      onReadyToShow();
-    } catch (e) {
-      console.error('start after tap failed', e);
-      showError('Không thể phát media. Thử lại.');
-    }
-  });
-
-  // keep track of timeupdate and show buttons at exact times
-  VIDEO.addEventListener('timeupdate', () => {
-    const t = Math.floor(VIDEO.currentTime);
-    // check each checkpoint only once
-    CHECKPOINTS.forEach((cp, idx) => {
-      if (t >= cp && !checkpointsShown.has(cp)) {
-        // pause exactly at the time if not already paused
-        if (!VIDEO.paused) VIDEO.pause();
-        checkpointsShown.add(cp);
-        // show corresponding button
-        if (idx === 0) showButton(btnSwipe);
-        if (idx === 1) showButton(btnCenter);
-        // fade music down when button appears
-        fadeMusicTo(0.28, 700);
+    // === CẢM BIẾN (MOBILE) ===
+    function requestSensorPermission() {
+      if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+        DeviceOrientationEvent.requestPermission()
+          .then(state => {
+            if (state === 'granted') {
+              isAuthorized = true;
+              window.addEventListener('deviceorientation', handleOrientation);
+            }
+          })
+          .catch(console.error);
+      } else {
+        isAuthorized = true;
+        window.addEventListener('deviceorientation', handleOrientation);
       }
+    }
+
+    function handleOrientation(event) {
+      if (!isAuthorized || isDesktop || window.innerHeight > window.innerWidth) return;
+      const { beta, gamma } = event;
+      if (beta === null || gamma === null) return;
+
+      const tiltX = Math.max(-38, Math.min(38, gamma));
+      const tiltY = Math.max(-38, Math.min(38, beta - 45));
+      updateView(tiltX, -tiltY);
+    }
+
+    // === CHUỘT (DESKTOP) ===
+    function handleMouseMove(e) {
+      if (!isDesktop) return;
+      const rect = container.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+
+      const mouseX = ((e.clientX - centerX) / centerX) * 38;
+      const mouseY = ((e.clientY - centerY) / centerY) * 38;
+
+      updateView(mouseX, mouseY);
+    }
+
+    function updateView(rotY, rotX) {
+      container.style.transform = `rotateY(${rotY}deg) rotateX(${rotX}deg)`;
+    }
+
+    function resetView() {
+      if (isDesktop) container.style.transform = 'rotateY(0deg) rotateX(0deg)';
+    }
+
+    // === KÍCH HOẠT THEO THIẾT BỊ ===
+    if (isDesktop) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseleave', resetView);
+      setTimeout(() => mouseHint.classList.add('show'), 1000);
+      setTimeout(() => mouseHint.classList.remove('show'), 5000);
+    } else {
+      document.body.addEventListener('click', () => {
+        if (!isAuthorized) requestSensorPermission();
+      }, { once: true });
+
+      window.addEventListener('orientationchange', () => {
+        setTimeout(() => {
+          if (window.matchMedia("(orientation: landscape)").matches && !isAuthorized) {
+            alert("Nhấn màn hình để kích hoạt cảm biến 3D");
+          }
+        }, 600);
+      });
+
+      if (window.matchMedia("(orientation: landscape)").matches) {
+        setTimeout(() => {
+          if (!isAuthorized) alert("Nhấn màn hình để trải nghiệm 3D");
+        }, 1000);
+      }
+    }
+
+    window.addEventListener('resize', () => {
+      if (isDesktop) resetView();
     });
-  });
-
-  function showButton(btn){
-    btn.setAttribute('aria-hidden','false');
-    btn.classList.add('show');
-    // show small hint for sound if music muted or low
-    if (MUSIC.paused || MUSIC.volume < 0.4) hint.classList.add('show');
-  }
-
-  function hideButton(btn){
-    btn.classList.remove('show');
-    btn.setAttribute('aria-hidden','true');
-    hint.classList.remove('show');
-  }
-
-  // clicking anywhere restores music volume (and unmute video if needed)
-  document.addEventListener('click', () => {
-    // restore volume smoothly
-    if (!MUSIC.paused) fadeMusicTo(1.0, 500);
-    // if video is muted and playing, unmute (only if user interacts)
-    if (VIDEO.muted) VIDEO.muted = false;
-  }, {passive:true});
-
-  // button handlers
-  btnSwipe.addEventListener('click', () => {
-    hideButton(btnSwipe);
-    fadeMusicTo(1.0, 450);
-    VIDEO.play().catch(err => console.warn('play failed after btnSwipe',err));
-  });
-  btnCenter.addEventListener('click', () => {
-    hideButton(btnCenter);
-    fadeMusicTo(1.0, 450);
-    VIDEO.play().catch(err => console.warn('play failed after btnCenter',err));
-  });
-
-  // if video ends naturally, we can loop or show replay. For now do nothing.
-  VIDEO.addEventListener('ended', () => {
-    // optional: show replay or end screen
-    console.log('video ended');
-  });
-
-  // start loading sequence
-  const startTime = Date.now();
-  // attempt to start loading & may be canplaythrough soon
-  // call load and try autoplay after LOADING_MIN unless canplaythrough already fired
-  VIDEO.load();
-  MUSIC.load();
-  // attempt play after LOADING_MIN (this handles cases where canplaythrough didn't fire)
-  setTimeout(() => {
-    // if canplaythrough hasn't fired, still attempt to play (some browsers stream enough)
-    if (!lastCanPlay) {
-      attemptPlay();
-    }
-  }, LOADING_MIN + 50);
-
-  // in case autoplay succeeds early, call attemptPlay now (but it's safe)
-  attemptPlay();
-
-  // safety: if both media error or blocked and user doesn't interact, show tapToStart after a few seconds
-  setTimeout(() => {
-    if (VIDEO.paused && tapToStart.style.display === 'none') {
-      tapToStart.style.display = 'flex';
-      tapToStart.setAttribute('aria-hidden','false');
-    }
-  }, 4500);
-
-})();
-</script>
+  </script>
 </body>
 </html>
