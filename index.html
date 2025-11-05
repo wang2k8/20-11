@@ -2,73 +2,87 @@
 <html lang="vi">
 <head>
 <meta charset="UTF-8" />
+<!-- Thiết lập viewport giúp hiển thị tốt trên thiết bị di động -->
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>3D Layer 3n</title>
+<title>3D Layer 5n</title>
+
 <style>
-  * {margin:0;padding:0;box-sizing:border-box;}
+  /* Reset CSS cơ bản */
+  * {margin:0; padding:0; box-sizing:border-box;}
   html,body {
     height:100%;
     overflow:hidden;
     background:#000;
     font-family:sans-serif;
-    touch-action:pan-x pan-y;
+    touch-action:pan-x pan-y; /* Cho phép trượt trên cảm ứng */
   }
 
+  /* Khối bao ngoài có phối cảnh 3D */
   #wrapper {
     position:absolute;
-    top:50%;left:50%;
+    top:50%; left:50%;
     transform:translate(-50%,-50%);
-    perspective:1200px;
-    width:100vw;height:100vh;
-    will-change:transform;
+    perspective:1200px; /* 👈 Độ sâu phối cảnh */
+    width:100vw; height:100vh;
+    will-change:transform; /* Tối ưu hiệu suất khi transform */
   }
 
+  /* Container giữ tất cả layer bên trong, cho phép giữ nguyên phối cảnh 3D */
   #container {
-    width:100%;height:100%;
+    width:100%; height:100%;
     position:relative;
-    transform-style:preserve-3d;
+    transform-style:preserve-3d; /* 👈 Duy trì không gian 3D cho các con */
   }
 
+  /* Mỗi lớp ảnh (layer) */
   .layer {
     position:absolute;
-    top:50%;left:50%;
+    top:50%; left:50%;
     transform:translate(-50%,-50%);
-    backface-visibility:hidden;
+    backface-visibility:hidden; /* Ẩn mặt sau khi xoay */
     transition:opacity .4s ease;
     will-change:transform,opacity;
-    opacity:0;
+    opacity:0; /* Ẩn trước khi ảnh load */
   }
 
   .layer img {
-    width:90vw;max-width:900px;display:block;
-    -webkit-user-drag:none;
+    width:90vw; max-width:900px; display:block;
+    -webkit-user-drag:none; /* Ngăn kéo ảnh */
   }
 
+  /* Khi ảnh load xong thì hiển thị */
   .visible {opacity:1;}
 
+  /* Nút bắt đầu hiển thị trên mobile */
   #start-btn {
-    position:fixed;top:50%;left:50%;
+    position:fixed; top:50%; left:50%;
     transform:translate(-50%,-50%);
-    background:#00aaff;color:#fff;
-    border:none;border-radius:50px;
-    padding:16px 32px;font-size:1.2em;
-    font-weight:bold;z-index:999;
+    background:#00aaff; color:#fff;
+    border:none; border-radius:50px;
+    padding:16px 32px; font-size:1.2em;
+    font-weight:bold; z-index:999;
     box-shadow:0 8px 20px rgba(0,0,0,.5);
     animation:pulse 2s infinite;
-    display:none;
+    display:none; /* Mặc định ẩn */
   }
 
+  /* Hiệu ứng nhấp nháy nhẹ cho nút */
   @keyframes pulse {
-    0%,100%{transform:translate(-50%,-50%) scale(1);}
-    50%{transform:translate(-50%,-50%) scale(1.05);}
+    0%,100% {transform:translate(-50%,-50%) scale(1);}
+    50% {transform:translate(-50%,-50%) scale(1.05);}
   }
 
-  @media(max-width:768px){#start-btn{display:block;}}
-  #start-btn.active{display:none;}
+  /* Hiển thị nút trên màn nhỏ (điện thoại) */
+  @media(max-width:768px) {
+    #start-btn {display:block;}
+  }
+  /* Khi nhấn nút thì ẩn nó */
+  #start-btn.active {display:none;}
 
+  /* Gợi ý cho người dùng khi vào chế độ cảm biến */
   #hint {
     position:fixed;
-    bottom:20px;left:50%;
+    bottom:20px; left:50%;
     transform:translateX(-50%);
     background:rgba(0,0,0,.6);
     color:#fff;
@@ -85,49 +99,69 @@
 </head>
 <body>
 
+<!-- Nút bắt đầu (hiển thị trên điện thoại) -->
 <button id="start-btn">BẮT ĐẦU 3D</button>
+<!-- Gợi ý hiện trong vài giây khi bắt đầu -->
 <div id="hint">Nghiêng điện thoại để xem 3D</div>
-<div id="wrapper"><div id="container"></div></div>
+
+<!-- Vùng 3D -->
+<div id="wrapper">
+  <div id="container"></div>
+</div>
 
 <script>
+/* --- Lấy các phần tử DOM --- */
 const wrapper=document.getElementById('wrapper');
 const container=document.getElementById('container');
 const startBtn=document.getElementById('start-btn');
 const hint=document.getElementById('hint');
 
-const totalLayers=5;
+/* --- Cấu hình layer --- */
+const totalLayers=5; // Tổng số ảnh
 const layers=[];
+/* Mỗi layer có vị trí Z, tỉ lệ scale, độ mờ và độ parallax riêng */
 const settings=[
-  {z:0,scale:1.8,opacity:1,parallax:0.2},
-  {z:200,scale:1.5,opacity:1,parallax:0.4},
-  {z:335,scale:1.3,opacity:1,parallax:0.6},
-  {z:470,scale:1.1,opacity:0.95,parallax:0.8},
-  {z:535,scale:1.0,opacity:1,parallax:1}
+  {z:0,   scale:1.8, opacity:1,   parallax:0.2},
+  {z:200, scale:1.5, opacity:1,   parallax:0.4},
+  {z:335, scale:1.3, opacity:1,   parallax:0.6},
+  {z:470, scale:1.1, opacity:0.95,parallax:0.8},
+  {z:535, scale:1.0, opacity:1,   parallax:1}
 ];
 
-let is3D=false;
-let tiltX=0,tiltY=0;
-let zoom=1;
-let scrollY=0;
-const MAX_TILT=7; // 👈 Giảm mức xoay tối đa 3 lần so với trước (20 → 7)
+/* --- Biến điều khiển hiệu ứng --- */
+let is3D=false; // Có đang kích hoạt chế độ 3D không
+let tiltX=0, tiltY=0; // Góc nghiêng
+let zoom=1; // Thu phóng
+let scrollY=0; // Dịch theo trục Y
+const MAX_TILT=1.8; // 👈 Giới hạn góc nghiêng tối đa
 
+/* --- Hàm render cập nhật góc, zoom và vị trí từng layer --- */
 function render(){
-  if(!is3D)return;
+  if(!is3D) return;
+  /* Xoay tổng thể theo tiltX/Y và scale */
   container.style.transform=`rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale(${zoom})`;
+
+  /* Mỗi layer có parallax và z khác nhau */
   layers.forEach((l,i)=>{
     const s=settings[i];
     const offset=scrollY*s.parallax;
-    l.style.transform=`translate(-50%,-50%) translateZ(${s.z}px) translateY(${offset}px) scale(${s.scale})`;
+    l.style.transform=`
+      translate(-50%,-50%)
+      translateZ(${s.z}px)
+      translateY(${offset}px)
+      scale(${s.scale})
+    `;
   });
 }
 
+/* --- Tạo các layer và load ảnh --- */
 function setupLayers(){
   for(let i=0;i<totalLayers;i++){
     const div=document.createElement('div');
     div.className='layer';
     const img=new Image();
-    img.src=`img${i+1}.png`; // ⚠️ Đặt 5 ảnh img1.png → img5.png trong cùng thư mục
-    img.onload=()=>div.classList.add('visible');
+    img.src=`img${i+1}.png`; // ⚠️ Ảnh phải đặt tên img1.png → img5.png
+    img.onload=()=>div.classList.add('visible'); // Hiện khi load xong
     div.appendChild(img);
     container.appendChild(div);
     layers.push(div);
@@ -137,16 +171,17 @@ function setupLayers(){
 
 setupLayers();
 
-// -------- FULLSCREEN -------------
+/* --- Toàn màn hình --- */
 function goFullscreen(){
   const el=document.documentElement;
-  if(el.requestFullscreen)el.requestFullscreen();
-  else if(el.webkitRequestFullscreen)el.webkitRequestFullscreen();
+  if(el.requestFullscreen) el.requestFullscreen();
+  else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
 }
 
-// -------- MOBILE / DESKTOP --------
+/* --- Kiểm tra thiết bị --- */
 const isMobile=/Mobi|Android|iPhone/i.test(navigator.userAgent);
 
+/* --- Điều khiển bằng chuột (desktop) --- */
 if(!isMobile){
   is3D=true;
   goFullscreen();
@@ -154,11 +189,14 @@ if(!isMobile){
     const rect=wrapper.getBoundingClientRect();
     const cx=rect.left+rect.width/2;
     const cy=rect.top+rect.height/2;
+    /* Xác định độ lệch con trỏ so với tâm */
     tiltY=((e.clientX-cx)/cx)*MAX_TILT;
     tiltX=-((e.clientY-cy)/cy)*MAX_TILT;
     render();
   });
-} else {
+}
+/* --- Điều khiển bằng cảm biến (mobile) --- */
+else {
   startBtn.addEventListener('click',()=>{
     startBtn.classList.add('active');
     goFullscreen();
@@ -168,42 +206,50 @@ if(!isMobile){
   });
 }
 
-// -------- CẢM BIẾN ỔN ĐỊNH --------
-let smoothX=0,smoothY=0;
+/* --- Làm mượt cảm biến --- */
+let smoothX=0, smoothY=0;
 const SMOOTH=0.12;
 
 function startSensor(){
   is3D=true;
+  /* Với iOS cần xin quyền truy cập cảm biến */
   if(typeof DeviceOrientationEvent.requestPermission==='function'){
     DeviceOrientationEvent.requestPermission()
       .then(state=>{
-        if(state==='granted')window.addEventListener('deviceorientation',handleOri);
+        if(state==='granted')
+          window.addEventListener('deviceorientation',handleOri);
         else fallbackTouch();
-      }).catch(fallbackTouch);
+      })
+      .catch(fallbackTouch);
   } else {
     window.addEventListener('deviceorientation',handleOri);
   }
 }
 
+/* --- Xử lý dữ liệu cảm biến nghiêng --- */
 function handleOri(e){
   if(!is3D)return;
-  let gx=e.gamma||0, gy=e.beta||0;
-  smoothX+= (gx-smoothX)*SMOOTH;
-  smoothY+= (gy-smoothY)*SMOOTH;
+  let gx=e.gamma||0; // Nghiêng trái/phải
+  let gy=e.beta||0;  // Nghiêng trước/sau
+  /* Làm mượt chuyển động */
+  smoothX+=(gx-smoothX)*SMOOTH;
+  smoothY+=(gy-smoothY)*SMOOTH;
+  /* Giới hạn góc xoay */
   tiltY=Math.max(-MAX_TILT,Math.min(MAX_TILT,smoothX));
   tiltX=Math.max(-MAX_TILT,Math.min(MAX_TILT, smoothY-45));
   render();
 }
 
-// -------- Fallback TOUCH --------
+/* --- Trường hợp cảm biến không hỗ trợ: fallback bằng cảm ứng --- */
 function fallbackTouch(){
-  let sx=0,sy=0;
+  let sx=0, sy=0;
   container.addEventListener('touchstart',e=>{
     if(e.touches.length===1){
       sx=e.touches[0].clientX;
       sy=e.touches[0].clientY;
     }
   },{passive:true});
+
   container.addEventListener('touchmove',e=>{
     if(e.touches.length!==1)return;
     const dx=(e.touches[0].clientX-sx)/innerWidth;
@@ -214,13 +260,14 @@ function fallbackTouch(){
   },{passive:true});
 }
 
-// -------- ZOOM / SCROLL --------
+/* --- Cuộn chuột để di chuyển chiều sâu hoặc thay đổi zoom --- */
 document.addEventListener('wheel',e=>{
   if(!is3D)return;
   scrollY=Math.max(-30,Math.min(30,scrollY+e.deltaY*0.05));
   render();
 },{passive:true});
 
+/* --- Zoom bằng hai ngón (pinch) --- */
 let pinch=0;
 container.addEventListener('touchmove',e=>{
   if(e.touches.length===2){
@@ -235,7 +282,7 @@ container.addEventListener('touchmove',e=>{
 },{passive:true});
 container.addEventListener('touchend',()=>pinch=0);
 
-// -------- XOAY NGANG/DỌC ỔN --------
+/* --- Xử lý khi xoay dọc/ngang màn hình điện thoại --- */
 function adjustRotate(){
   if(!isMobile)return;
   const land=innerWidth>innerHeight;
