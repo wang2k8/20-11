@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>3D Parallax - Mobile Optimized + Rotate Button</title>
+  <title>3D Parallax - Mobile Fixed</title>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     body, html { height:100%; overflow:hidden; background:#000; font-family:sans-serif; touch-action: pan-x pan-y; }
@@ -32,12 +32,10 @@
       will-change: transform;
       backface-visibility: hidden;
       transition: opacity 0.5s ease;
-      image-rendering: -webkit-optimize-contrast;
     }
     .layer img {
       width: 100%; height: auto; display: block;
       -webkit-user-drag: none;
-      border-radius: 0 !important;
       transform: translateZ(0);
     }
     .layer.visible { opacity: 1; }
@@ -49,10 +47,7 @@
       box-shadow: 0 8px 30px rgba(0,0,0,0.5); cursor: pointer;
       animation: pulse 2s infinite; display: none;
     }
-    @keyframes pulse {
-      0%, 100% { transform: translate(-50%, -50%) scale(1); }
-      50% { transform: translate(-50%, -50%) scale(1.05); }
-    }
+    @keyframes pulse { 0%,100% { transform: translate(-50%,-50%) scale(1); } 50% { transform: translate(-50%,-50%) scale(1.05); } }
     @media (max-width: 768px) { #start-btn { display: block; } }
     #start-btn.active { display: none; }
 
@@ -63,7 +58,7 @@
     }
     #hint.show { opacity: 1; }
 
-    /* NÚT XOAY NGANG - GÓC PHẢI DƯỚI */
+    /* NÚT XOAY NGANG */
     #rotate-btn {
       position: fixed;
       bottom: 20px; right: 20px;
@@ -87,10 +82,8 @@
       opacity: 1;
       pointer-events: auto;
     }
-    #rotate-btn:active {
-      transform: scale(0.9);
-    }
-    @media (min-width: 769px) { #rotate-btn { display: none; } } /* Ẩn trên PC */
+    #rotate-btn:active { transform: scale(0.9); }
+    @media (min-width: 769px) { #rotate-btn { display: none; } }
   </style>
 </head>
 <body>
@@ -111,7 +104,6 @@
   </div>
 
   <script>
-    // === CẤU HÌNH ===
     const container = document.getElementById('container');
     const wrapper = document.getElementById('container-wrapper');
     const startBtn = document.getElementById('start-btn');
@@ -135,7 +127,6 @@
     let is3DEnabled = false;
     let lastBeta = 0, lastGamma = 0;
     let scrollY = 0;
-    let isForcedLandscape = false;
 
     // === RENDER GỘP ===
     let rafId = null;
@@ -150,8 +141,7 @@
       layers.forEach((layer, i) => {
         const s = layerSettings[i];
         const offset = lastScrollY * s.parallax;
-        layer.el.style.transform =
-          `translate(-50%, -50%) translateZ(${s.z}px) translateY(${offset}px) scale(${s.scale})`;
+        layer.el.style.transform = `translate(-50%, -50%) translateZ(${s.z}px) translateY(${offset}px) scale(${s.scale})`;
       });
     }
 
@@ -223,8 +213,6 @@
 
         hint.classList.add('show');
         setTimeout(() => hint.classList.remove('show'), 2500);
-
-        // HIỂN THỊ NÚT XOAY SAU KHI BẮT ĐẦU
         rotateBtn.classList.add('active');
       });
     }
@@ -283,95 +271,53 @@
     let pinchStart = 0;
     container.addEventListener('touchstart', e => {
       if (e.touches.length !== 2) return;
-      pinchStart = Math.hypot(
-        e.touches[0].pageX - e.touches[1].pageX,
-        e.touches[0].pageY - e.touches[1].pageY
-      );
+      pinchStart = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
     }, { passive: true });
 
     container.addEventListener('touchmove', e => {
       if (e.touches.length !== 2) return;
-      const dist = Math.hypot(
-        e.touches[0].pageX - e.touches[1].pageX,
-        e.touches[0].pageY - e.touches[1].pageY
-      );
+      const dist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
       const delta = dist / pinchStart;
       currentZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, currentZoom * delta));
       pinchStart = dist;
       scheduleRender(-lastBeta + 45, lastGamma, currentZoom, scrollY);
     }, { passive: true });
 
-    // === NÚT XOAY NGANG ===
-    rotateBtn.addEventListener('click', async () => {
-      if (!screen.orientation) return;
-
-      try {
-        if (!isForcedLandscape) {
-          await screen.orientation.lock('landscape');
-          isForcedLandscape = true;
-          rotateBtn.innerHTML = `
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 16v-2a4 4 0 0 0-4-4h-2m-5-4H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6"/>
-            </svg>
-          `;
-          rotateBtn.title = "Đang ở chế độ ngang";
-        } else {
-          screen.orientation.unlock();
-          isForcedLandscape = false;
-          rotateBtn.innerHTML = `
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 16v-2a4 4 0 0 0-4-4h-2m-5-4H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6"/>
-              <path d="M17 8h4v4"/>
-            </svg>
-          `;
-          rotateBtn.title = "Xoay ngang";
-        }
-      } catch (err) {
-        alert("Không thể khóa hướng màn hình. Vui lòng xoay thiết bị.");
-      }
+    // === NÚT XOAY NGANG (chỉ gợi ý) ===
+    rotateBtn.addEventListener('click', () => {
+      alert("Vui lòng xoay thiết bị sang ngang để trải nghiệm tốt nhất.");
     });
 
-    // === CẬP NHẬT TRẠNG THÁI NÚT KHI XOAY ===
-    function updateRotateButton() {
-      if (!is3DEnabled || isDesktop) return;
-
-      const isLandscape = window.innerWidth > window.innerHeight;
-      if (isLandscape && !isForcedLandscape) {
-        rotateBtn.classList.remove('active');
-      } else {
-        rotateBtn.classList.add('active');
-      }
-    }
-
-    // === XOAY MÀN HÌNH ===
-    let resizeTimer;
+    // === XOAY MÀN HÌNH - ĐÃ SỬA LỖI ĐƠ ===
+    let isUpdating = false;
     function updateOrientation() {
-      if (isDesktop) return;
+      if (isDesktop || !is3DEnabled || isUpdating) return;
+      isUpdating = true;
 
-      let isLandscape = false;
-      if (window.screen?.orientation?.type) {
-        isLandscape = ['landscape-primary', 'landscape-secondary'].includes(window.screen.orientation.type);
-      } else {
-        isLandscape = window.innerWidth > window.innerHeight;
-      }
+      requestAnimationFrame(() => {
+        const isLandscape = window.innerWidth > window.innerHeight;
 
-      wrapper.style.width = isLandscape ? '100vw' : '100vh';
-      wrapper.style.height = isLandscape ? '100vh' : '100vw';
-      wrapper.style.transform = `translate(-50%, -50%) rotate(${isLandscape ? 0 : 90}deg)`;
+        wrapper.style.width = isLandscape ? '100vw' : '100vh';
+        wrapper.style.height = isLandscape ? '100vh' : '100vw';
+        wrapper.style.transform = `translate(-50%, -50%) rotate(${isLandscape ? 0 : 90}deg)`;
 
-      updateRotateButton();
+        // Cập nhật nút
+        if (isLandscape) {
+          rotateBtn.classList.remove('active');
+        } else {
+          rotateBtn.classList.add('active');
+        }
+
+        isUpdating = false;
+      });
     }
 
-    window.addEventListener('orientationchange', () => {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(() => {
-        updateOrientation();
-      }, 100);
-    });
-    window.addEventListener('resize', () => {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(updateOrientation, 100);
-    });
+    // Gộp sự kiện
+    const orientationHandler = () => requestAnimationFrame(updateOrientation);
+    window.addEventListener('orientationchange', orientationHandler);
+    window.addEventListener('resize', orientationHandler);
+
+    // Gọi lần đầu
     updateOrientation();
 
     // === DESKTOP MOUSE ===
