@@ -89,15 +89,15 @@
     const totalLayers = 5;
 
     const layerSettings = [
-      { z: 0, scale: 1.8, opacity: 1.0, parallax: 0.2 },
-      { z:  200, scale: 1.5, opacity: 1.0, parallax: 0.4 },
-      { z:  335, scale: 1.3, opacity: 1.0, parallax: 0.6 },
-      { z:   470, scale: 1.1, opacity: 0.95, parallax: 0.8 },
-      { z:   535, scale: 1.0, opacity: 1.0, parallax: 1.0 }
+      { z: 0,   scale: 1.8, opacity: 1.0, parallax: 0.2 },
+      { z: 200, scale: 1.5, opacity: 1.0, parallax: 0.4 },
+      { z: 335, scale: 1.3, opacity: 1.0, parallax: 0.6 },
+      { z: 470, scale: 1.1, opacity: 0.95, parallax: 0.8 },
+      { z: 535, scale: 1.0, opacity: 1.0, parallax: 1.0 }
     ];
 
-    // GIẢM 3 LẦN NỮA → TỔNG CỘNG GIẢM 4 LẦN (24.5 / 16 = 1.53125)
-    const MAX_TILT = 1.53125;  // ← ĐÃ GIẢM CỰC MẠNH
+    // GIẢM 4 LẦN → ~6.25% so với gốc
+    const MAX_TILT = 1.53125;
 
     let currentZoom = 1;
     const MIN_ZOOM = 0.5;
@@ -113,15 +113,11 @@
       cancelAnimationFrame(rafId);
       rafId = requestAnimationFrame(() => {
         container.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg) scale(${zoom})`;
-        
         layers.forEach((layer, i) => {
           const s = layerSettings[i];
           const offset = parallaxOffset * s.parallax;
-          layer.el.style.transform = 
-            `translate(-50%, -50%) ` +
-            `translateZ(${s.z}px) ` +
-            `translateY(${offset}px) ` +
-            `scale(${s.scale})`;
+          layer.el.style.transform =
+            `translate(-50%, -50%) translateZ(${s.z}px) translateY(${offset}px) scale(${s.scale})`;
         });
       });
     }
@@ -140,11 +136,10 @@
       div.style.opacity = 0;
       layers.push({ el: div, ...s });
 
-      img.onload = () => {
-        setTimeout(() => render(0, 0, currentZoom, scrollY), 100);
-      };
+      img.onload = () => setTimeout(() => render(0, 0, currentZoom, scrollY), 100);
     }
 
+    // Hiển thị layer
     setTimeout(() => {
       layers.forEach((l, i) => {
         setTimeout(() => {
@@ -191,8 +186,8 @@
     function startSensor() {
       window.addEventListener('deviceorientation', e => {
         if (!is3DEnabled) return;
-        const gamma = e.gamma || lastGamma;
-        const beta = e.beta || lastBeta;
+        const gamma = e.gamma ?? lastGamma;
+        const beta  = e.beta  ?? lastBeta;
         lastGamma = gamma; lastBeta = beta;
 
         clearTimeout(sensorTimeout);
@@ -205,8 +200,7 @@
     }
 
     // === PARALLAX SCROLL ===
-    let lastTouchY = 0;
-    let isTouching = false;
+    let lastTouchY = 0, isTouching = false;
 
     document.addEventListener('wheel', e => {
       e.preventDefault();
@@ -224,17 +218,15 @@
     container.addEventListener('touchmove', e => {
       if (!is3DEnabled || !isTouching) return;
       e.preventDefault();
-      const currentY = e.touches[0].clientY;
-      const deltaY = (lastTouchY - currentY) * 0.8;
+      const curY = e.touches[0].clientY;
+      const deltaY = (lastTouchY - curY) * 0.8;
       scrollY += deltaY;
       scrollY = Math.max(-30, Math.min(30, scrollY));
-      lastTouchY = currentY;
+      lastTouchY = curY;
       render(-lastBeta + 45, lastGamma, currentZoom, scrollY);
     }, { passive: false });
 
-    container.addEventListener('touchend', () => {
-      isTouching = false;
-    });
+    container.addEventListener('touchend', () => { isTouching = false; });
 
     // === ZOOM (mobile) ===
     let startDist = 0;
@@ -250,20 +242,19 @@
     container.addEventListener('touchmove', e => {
       if (!is3DEnabled || e.touches.length !== 2) return;
       e.preventDefault();
-      const currentDist = Math.hypot(
+      const curDist = Math.hypot(
         e.touches[0].pageX - e.touches[1].pageX,
         e.touches[0].pageY - e.touches[1].pageY
       );
-      const delta = currentDist / startDist;
+      const delta = curDist / startDist;
       currentZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, currentZoom * delta));
-      startDist = currentDist;
+      startDist = curDist;
       render(-lastBeta + 45, lastGamma, currentZoom, scrollY);
     }, { passive: false });
 
     // === DESKTOP: CHUỘT ===
     if (isDesktop) {
-      let mouseX = 0, mouseY = 0;
-      let mouseRaf = null;
+      let mouseX = 0, mouseY = 0, mouseRaf = null;
 
       document.addEventListener('mousemove', e => {
         const rect = wrapper.getBoundingClientRect();
@@ -284,17 +275,33 @@
       setTimeout(() => hint.classList.remove('show'), 4000);
     }
 
-    // === TỰ ĐỘNG XOAY (mobile) ===
+    // === TỰ ĐỘNG XOAY (mobile) – ĐÃ SỬA LỖI ===
     function updateOrientation() {
       if (isDesktop) return;
-      const isLandscape = window.innerHeight < window.innerWidth;
-      wrapper.style.width = isLandscape ? '100vw' : '100vh';
-      wrapper.style.height = isLandscape ? '100vh' : '100vw';
-      wrapper.style.transform = `translate(-50%, -50%) rotate(${isLandscape ? 0 : 90}deg)`;
+
+      let isLandscape = false;
+      if (window.screen?.orientation?.type) {
+        isLandscape = ['landscape-primary', 'landscape-secondary'].includes(
+          window.screen.orientation.type
+        );
+      } else {
+        isLandscape = window.innerWidth > window.innerHeight;
+      }
+
+      if (isLandscape) {
+        wrapper.style.width  = '100vw';
+        wrapper.style.height = '100vh';
+        wrapper.style.transform = 'translate(-50%, -50%) rotate(0deg)';
+      } else {
+        wrapper.style.width  = '100vh';
+        wrapper.style.height = '100vw';
+        wrapper.style.transform = 'translate(-50%, -50%) rotate(90deg)';
+      }
     }
+
     window.addEventListener('orientationchange', updateOrientation);
     window.addEventListener('resize', updateOrientation);
-    updateOrientation();
+    updateOrientation();   // Gọi ngay khi load
   </script>
 </body>
 </html>
