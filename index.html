@@ -3,24 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>3D Parallax - Layer Gần Như Chồng</title>
+  <title>3D Parallax - Mobile Optimized + Rotate Button</title>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
-    body, html { height:100%; overflow:hidden; background:#000; font-family:sans-serif; touch-action: none; }
+    body, html { height:100%; overflow:hidden; background:#000; font-family:sans-serif; touch-action: pan-x pan-y; }
     
     #container-wrapper {
       position: absolute; top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
+      transform: translate(-50%, -50%) translateZ(0);
       width: 100vw; height: 100vh;
       perspective: 1200px;
       will-change: transform;
-    }
-
-    @media (orientation: portrait) and (max-width: 768px) {
-      #container-wrapper {
-        width: 100vh; height: 100vw;
-        transform: translate(-50%, -50%) rotate(90deg);
-      }
     }
 
     #container {
@@ -36,15 +29,16 @@
       width: 90vw; max-width: 900px;
       transform: translate(-50%, -50%) translateZ(0) scale(1);
       opacity: 0;
-      will-change: transform, opacity;
+      will-change: transform;
       backface-visibility: hidden;
-      transition: opacity 0.5s;
+      transition: opacity 0.5s ease;
+      image-rendering: -webkit-optimize-contrast;
     }
     .layer img {
       width: 100%; height: auto; display: block;
-      image-rendering: crisp-edges;
       -webkit-user-drag: none;
       border-radius: 0 !important;
+      transform: translateZ(0);
     }
     .layer.visible { opacity: 1; }
 
@@ -56,9 +50,8 @@
       animation: pulse 2s infinite; display: none;
     }
     @keyframes pulse {
-      0% { transform: translate(-50%, -50%) scale(1); }
+      0%, 100% { transform: translate(-50%, -50%) scale(1); }
       50% { transform: translate(-50%, -50%) scale(1.05); }
-      100% { transform: translate(-50%, -50%) scale(1); }
     }
     @media (max-width: 768px) { #start-btn { display: block; } }
     #start-btn.active { display: none; }
@@ -69,22 +62,61 @@
       font-size: 14px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 100;
     }
     #hint.show { opacity: 1; }
+
+    /* NÚT XOAY NGANG - GÓC PHẢI DƯỚI */
+    #rotate-btn {
+      position: fixed;
+      bottom: 20px; right: 20px;
+      width: 44px; height: 44px;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      border: none;
+      border-radius: 50%;
+      font-size: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 999;
+      opacity: 0;
+      transition: opacity 0.3s, transform 0.2s;
+      pointer-events: none;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+    }
+    #rotate-btn.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    #rotate-btn:active {
+      transform: scale(0.9);
+    }
+    @media (min-width: 769px) { #rotate-btn { display: none; } } /* Ẩn trên PC */
   </style>
 </head>
 <body>
 
   <button id="start-btn">BẮT ĐẦU 3D</button>
-  <div id="hint">Cuộn / Kéo để xem hiệu ứng</div>
+  <div id="hint">Kéo / Nghiêng để xem</div>
+
+  <!-- NÚT XOAY NGANG -->
+  <button id="rotate-btn" title="Xoay ngang">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M21 16v-2a4 4 0 0 0-4-4h-2m-5-4H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6"/>
+      <path d="M17 8h4v4"/>
+    </svg>
+  </button>
 
   <div id="container-wrapper">
     <div id="container"></div>
   </div>
 
   <script>
+    // === CẤU HÌNH ===
     const container = document.getElementById('container');
     const wrapper = document.getElementById('container-wrapper');
     const startBtn = document.getElementById('start-btn');
     const hint = document.getElementById('hint');
+    const rotateBtn = document.getElementById('rotate-btn');
     const layers = [];
     const totalLayers = 5;
 
@@ -96,38 +128,51 @@
       { z: 535, scale: 1.0, opacity: 1.0, parallax: 1.0 }
     ];
 
-    // GIẢM 4 LẦN → ~6.25% so với gốc
     const MAX_TILT = 1.53125;
-
     let currentZoom = 1;
     const MIN_ZOOM = 0.5;
     const MAX_ZOOM = 3.0;
     let is3DEnabled = false;
     let lastBeta = 0, lastGamma = 0;
     let scrollY = 0;
+    let isForcedLandscape = false;
 
-    // === RENDER ===
+    // === RENDER GỘP ===
     let rafId = null;
-    function render(rotX, rotY, zoom, parallaxOffset = 0) {
-      if (!is3DEnabled) return;
-      cancelAnimationFrame(rafId);
-      rafId = requestAnimationFrame(() => {
-        container.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg) scale(${zoom})`;
-        layers.forEach((layer, i) => {
-          const s = layerSettings[i];
-          const offset = parallaxOffset * s.parallax;
-          layer.el.style.transform =
-            `translate(-50%, -50%) translateZ(${s.z}px) translateY(${offset}px) scale(${s.scale})`;
-        });
+    let needsRender = false;
+    let lastRotX = 0, lastRotY = 0, lastZoom = 1, lastScrollY = 0;
+
+    function render() {
+      if (!is3DEnabled || !needsRender) return;
+      needsRender = false;
+
+      container.style.transform = `rotateX(${lastRotX}deg) rotateY(${lastRotY}deg) scale(${lastZoom})`;
+      layers.forEach((layer, i) => {
+        const s = layerSettings[i];
+        const offset = lastScrollY * s.parallax;
+        layer.el.style.transform =
+          `translate(-50%, -50%) translateZ(${s.z}px) translateY(${offset}px) scale(${s.scale})`;
       });
     }
 
-    // Tạo layer
+    function scheduleRender(rotX, rotY, zoom, parallaxY) {
+      if (!is3DEnabled) return;
+      lastRotX = rotX; lastRotY = rotY; lastZoom = zoom; lastScrollY = parallaxY;
+      if (!needsRender) {
+        needsRender = true;
+        cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(render);
+      }
+    }
+
+    // === TẠO LAYER ===
     for (let i = 0; i < totalLayers; i++) {
       const div = document.createElement('div');
       div.className = 'layer';
       const img = new Image();
       img.src = `img${i+1}.png`;
+      img.loading = 'eager';
+      img.decoding = 'async';
       img.draggable = false;
       div.appendChild(img);
       container.appendChild(div);
@@ -136,20 +181,19 @@
       div.style.opacity = 0;
       layers.push({ el: div, ...s });
 
-      img.onload = () => setTimeout(() => render(0, 0, currentZoom, scrollY), 100);
+      img.onload = () => setTimeout(() => scheduleRender(0, 0, currentZoom, scrollY), 50);
     }
 
-    // Hiển thị layer
     setTimeout(() => {
       layers.forEach((l, i) => {
         setTimeout(() => {
           l.el.classList.add('visible');
           l.el.style.opacity = l.opacity;
-        }, i * 40);
+        }, i * 30);
       });
-    }, 150);
+    }, 100);
 
-    // === FULL MÀN HÌNH ===
+    // === FULLSCREEN ===
     function goFullscreen() {
       const elem = document.documentElement;
       if (elem.requestFullscreen) elem.requestFullscreen();
@@ -162,6 +206,7 @@
     if (isDesktop) {
       setTimeout(goFullscreen, 300);
       is3DEnabled = true;
+      scheduleRender(0, 0, currentZoom, scrollY);
     } else {
       startBtn.addEventListener('click', () => {
         startBtn.classList.add('active');
@@ -177,131 +222,176 @@
         }
 
         hint.classList.add('show');
-        setTimeout(() => hint.classList.remove('show'), 3000);
+        setTimeout(() => hint.classList.remove('show'), 2500);
+
+        // HIỂN THỊ NÚT XOAY SAU KHI BẮT ĐẦU
+        rotateBtn.classList.add('active');
       });
     }
 
-    // === CẢM BIẾN (mobile) ===
-    let sensorTimeout = null;
+    // === CẢM BIẾN ===
+    let sensorActive = false;
     function startSensor() {
+      if (sensorActive) return;
+      sensorActive = true;
+
+      let lastTime = 0;
       window.addEventListener('deviceorientation', e => {
         if (!is3DEnabled) return;
+        const now = performance.now();
+        if (now - lastTime < 16) return;
+        lastTime = now;
+
         const gamma = e.gamma ?? lastGamma;
-        const beta  = e.beta  ?? lastBeta;
+        const beta = e.beta ?? lastBeta;
         lastGamma = gamma; lastBeta = beta;
 
-        clearTimeout(sensorTimeout);
-        sensorTimeout = setTimeout(() => {
-          const tiltX = Math.max(-MAX_TILT, Math.min(MAX_TILT, gamma));
-          const tiltY = Math.max(-MAX_TILT, Math.min(MAX_TILT, beta - 45));
-          render(-tiltY, tiltX, currentZoom, scrollY);
-        }, 16);
+        const tiltX = Math.max(-MAX_TILT, Math.min(MAX_TILT, gamma));
+        const tiltY = Math.max(-MAX_TILT, Math.min(MAX_TILT, beta - 45));
+        scheduleRender(-tiltY, tiltX, currentZoom, scrollY);
       });
     }
 
-    // === PARALLAX SCROLL ===
-    let lastTouchY = 0, isTouching = false;
+    // === SCROLL & TOUCH ===
+    let touchY = 0, isScrolling = false;
+    function handleScroll(delta) {
+      scrollY = Math.max(-25, Math.min(25, scrollY + delta));
+      scheduleRender(-lastBeta + 45, lastGamma, currentZoom, scrollY);
+    }
 
     document.addEventListener('wheel', e => {
-      e.preventDefault();
-      scrollY += e.deltaY * 0.1;
-      scrollY = Math.max(-30, Math.min(30, scrollY));
-      render(-lastBeta + 45, lastGamma, currentZoom, scrollY);
-    }, { passive: false });
+      if (!is3DEnabled) return;
+      requestAnimationFrame(() => handleScroll(e.deltaY * 0.08));
+    }, { passive: true });
 
     container.addEventListener('touchstart', e => {
       if (!is3DEnabled) return;
-      lastTouchY = e.touches[0].clientY;
-      isTouching = true;
-    }, { passive: false });
+      touchY = e.touches[0].clientY;
+      isScrolling = true;
+    }, { passive: true });
 
     container.addEventListener('touchmove', e => {
-      if (!is3DEnabled || !isTouching) return;
-      e.preventDefault();
-      const curY = e.touches[0].clientY;
-      const deltaY = (lastTouchY - curY) * 0.8;
-      scrollY += deltaY;
-      scrollY = Math.max(-30, Math.min(30, scrollY));
-      lastTouchY = curY;
-      render(-lastBeta + 45, lastGamma, currentZoom, scrollY);
-    }, { passive: false });
+      if (!is3DEnabled || !isScrolling) return;
+      const delta = (touchY - e.touches[0].clientY) * 0.6;
+      touchY = e.touches[0].clientY;
+      handleScroll(delta);
+    }, { passive: true });
 
-    container.addEventListener('touchend', () => { isTouching = false; });
+    container.addEventListener('touchend', () => { isScrolling = false; });
 
-    // === ZOOM (mobile) ===
-    let startDist = 0;
+    // === ZOOM ===
+    let pinchStart = 0;
     container.addEventListener('touchstart', e => {
-      if (!is3DEnabled || e.touches.length !== 2) return;
-      e.preventDefault();
-      startDist = Math.hypot(
+      if (e.touches.length !== 2) return;
+      pinchStart = Math.hypot(
         e.touches[0].pageX - e.touches[1].pageX,
         e.touches[0].pageY - e.touches[1].pageY
       );
-    }, { passive: false });
+    }, { passive: true });
 
     container.addEventListener('touchmove', e => {
-      if (!is3DEnabled || e.touches.length !== 2) return;
-      e.preventDefault();
-      const curDist = Math.hypot(
+      if (e.touches.length !== 2) return;
+      const dist = Math.hypot(
         e.touches[0].pageX - e.touches[1].pageX,
         e.touches[0].pageY - e.touches[1].pageY
       );
-      const delta = curDist / startDist;
+      const delta = dist / pinchStart;
       currentZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, currentZoom * delta));
-      startDist = curDist;
-      render(-lastBeta + 45, lastGamma, currentZoom, scrollY);
-    }, { passive: false });
+      pinchStart = dist;
+      scheduleRender(-lastBeta + 45, lastGamma, currentZoom, scrollY);
+    }, { passive: true });
 
-    // === DESKTOP: CHUỘT ===
-    if (isDesktop) {
-      let mouseX = 0, mouseY = 0, mouseRaf = null;
+    // === NÚT XOAY NGANG ===
+    rotateBtn.addEventListener('click', async () => {
+      if (!screen.orientation) return;
 
-      document.addEventListener('mousemove', e => {
-        const rect = wrapper.getBoundingClientRect();
-        const cx = rect.left + rect.width / 2;
-        const cy = rect.top + rect.height / 2;
-        mouseX = ((e.clientX - cx) / cx) * MAX_TILT;
-        mouseY = ((e.clientY - cy) / cy) * MAX_TILT;
+      try {
+        if (!isForcedLandscape) {
+          await screen.orientation.lock('landscape');
+          isForcedLandscape = true;
+          rotateBtn.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 16v-2a4 4 0 0 0-4-4h-2m-5-4H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6"/>
+            </svg>
+          `;
+          rotateBtn.title = "Đang ở chế độ ngang";
+        } else {
+          screen.orientation.unlock();
+          isForcedLandscape = false;
+          rotateBtn.innerHTML = `
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 16v-2a4 4 0 0 0-4-4h-2m-5-4H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6"/>
+              <path d="M17 8h4v4"/>
+            </svg>
+          `;
+          rotateBtn.title = "Xoay ngang";
+        }
+      } catch (err) {
+        alert("Không thể khóa hướng màn hình. Vui lòng xoay thiết bị.");
+      }
+    });
 
-        cancelAnimationFrame(mouseRaf);
-        mouseRaf = requestAnimationFrame(() => {
-          render(mouseY, mouseX, currentZoom, scrollY);
-        });
-      });
+    // === CẬP NHẬT TRẠNG THÁI NÚT KHI XOAY ===
+    function updateRotateButton() {
+      if (!is3DEnabled || isDesktop) return;
 
-      document.addEventListener('mouseleave', () => render(0, 0, currentZoom, scrollY));
-
-      setTimeout(() => hint.classList.add('show'), 800);
-      setTimeout(() => hint.classList.remove('show'), 4000);
+      const isLandscape = window.innerWidth > window.innerHeight;
+      if (isLandscape && !isForcedLandscape) {
+        rotateBtn.classList.remove('active');
+      } else {
+        rotateBtn.classList.add('active');
+      }
     }
 
-    // === TỰ ĐỘNG XOAY (mobile) – ĐÃ SỬA LỖI ===
+    // === XOAY MÀN HÌNH ===
+    let resizeTimer;
     function updateOrientation() {
       if (isDesktop) return;
 
       let isLandscape = false;
       if (window.screen?.orientation?.type) {
-        isLandscape = ['landscape-primary', 'landscape-secondary'].includes(
-          window.screen.orientation.type
-        );
+        isLandscape = ['landscape-primary', 'landscape-secondary'].includes(window.screen.orientation.type);
       } else {
         isLandscape = window.innerWidth > window.innerHeight;
       }
 
-      if (isLandscape) {
-        wrapper.style.width  = '100vw';
-        wrapper.style.height = '100vh';
-        wrapper.style.transform = 'translate(-50%, -50%) rotate(0deg)';
-      } else {
-        wrapper.style.width  = '100vh';
-        wrapper.style.height = '100vw';
-        wrapper.style.transform = 'translate(-50%, -50%) rotate(90deg)';
-      }
+      wrapper.style.width = isLandscape ? '100vw' : '100vh';
+      wrapper.style.height = isLandscape ? '100vh' : '100vw';
+      wrapper.style.transform = `translate(-50%, -50%) rotate(${isLandscape ? 0 : 90}deg)`;
+
+      updateRotateButton();
     }
 
-    window.addEventListener('orientationchange', updateOrientation);
-    window.addEventListener('resize', updateOrientation);
-    updateOrientation();   // Gọi ngay khi load
+    window.addEventListener('orientationchange', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(() => {
+        updateOrientation();
+      }, 100);
+    });
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(updateOrientation, 100);
+    });
+    updateOrientation();
+
+    // === DESKTOP MOUSE ===
+    if (isDesktop) {
+      let mouseRaf = null;
+      document.addEventListener('mousemove', e => {
+        const rect = wrapper.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const mouseX = ((e.clientX - cx) / cx) * MAX_TILT;
+        const mouseY = ((e.clientY - cy) / cy) * MAX_TILT;
+
+        cancelAnimationFrame(mouseRaf);
+        mouseRaf = requestAnimationFrame(() => {
+          scheduleRender(mouseY, mouseX, currentZoom, scrollY);
+        });
+      }, { passive: true });
+
+      document.addEventListener('mouseleave', () => scheduleRender(0, 0, currentZoom, scrollY));
+    }
   </script>
 </body>
 </html>
