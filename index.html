@@ -1,356 +1,249 @@
 <!DOCTYPE html>
 <html lang="vi">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>3D Parallax - Cảm Biến Ổn Định</title>
-  <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body, html { height:100%; overflow:hidden; background:#000; font-family:sans-serif; touch-action: pan-x pan-y; }
-    
-    #container-wrapper {
-      position: absolute; top: 50%; left: 50%;
-      transform: translate(-50%, -50%) translateZ(0);
-      width: 100vw; height: 100vh;
-      perspective: 1200px;
-      will-change: transform;
-    }
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<title>3D Layer Parallax Hiệu Ứng Cảm Biến</title>
+<style>
+  * {margin:0;padding:0;box-sizing:border-box;}
+  html,body {
+    height:100%;
+    overflow:hidden;
+    background:#000;
+    font-family:sans-serif;
+    touch-action:pan-x pan-y;
+  }
 
-    #container {
-      width: 100%; height: 100%;
-      transform-style: preserve-3d;
-      position: relative;
-      will-change: transform;
-    }
+  #wrapper {
+    position:absolute;
+    top:50%;left:50%;
+    transform:translate(-50%,-50%);
+    perspective:1200px;
+    width:100vw;height:100vh;
+    will-change:transform;
+  }
 
-    .layer {
-      position: absolute;
-      top: 50%; left: 50%;
-      width: 90vw; max-width: 900px;
-      transform: translate(-50%, -50%) translateZ(0) scale(1);
-      opacity: 0;
-      will-change: transform;
-      backface-visibility: hidden;
-      transition: opacity 0.5s ease;
-    }
-    .layer img {
-      width: 100%; height: auto; display: block;
-      -webkit-user-drag: none;
-      transform: translateZ(0);
-    }
-    .layer.visible { opacity: 1; }
+  #container {
+    width:100%;height:100%;
+    position:relative;
+    transform-style:preserve-3d;
+  }
 
-    #start-btn {
-      position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
-      background: #00aaff; color: white; border: none; border-radius: 50px;
-      padding: 18px 36px; font-size: 1.2em; font-weight: bold; z-index: 9999;
-      box-shadow: 0 8px 30px rgba(0,0,0,0.5); cursor: pointer;
-      animation: pulse 2s infinite; display: none;
-    }
-    @keyframes pulse { 0%,100% { transform: translate(-50%,-50%) scale(1); } 50% { transform: translate(-50%,-50%) scale(1.05); } }
-    @media (max-width: 768px) { #start-btn { display: block; } }
-    #start-btn.active { display: none; }
+  .layer {
+    position:absolute;
+    top:50%;left:50%;
+    transform:translate(-50%,-50%);
+    backface-visibility:hidden;
+    transition:opacity .4s ease;
+    will-change:transform,opacity;
+    opacity:0;
+  }
 
-    #hint {
-      position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-      background: rgba(0,0,0,.6); color: #fff; padding: 8px 16px; border-radius: 20px;
-      font-size: 14px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 100;
-    }
-    #hint.show { opacity: 1; }
+  .layer img {
+    width:90vw;max-width:900px;display:block;
+    -webkit-user-drag:none;
+  }
 
-    #rotate-btn {
-      position: fixed; bottom: 20px; right: 20px;
-      width: 44px; height: 44px; background: rgba(0,0,0,0.7); color: white;
-      border: none; border-radius: 50%; font-size: 20px; display: flex;
-      align-items: center; justify-content: center; z-index: 999;
-      opacity: 0; transition: opacity 0.3s; pointer-events: none;
-      backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
-    }
-    #rotate-btn.active { opacity: 1; pointer-events: auto; }
-    #rotate-btn:active { transform: scale(0.9); }
-    @media (min-width: 769px) { #rotate-btn { display: none; } }
-  </style>
+  .visible {opacity:1;}
+
+  #start-btn {
+    position:fixed;top:50%;left:50%;
+    transform:translate(-50%,-50%);
+    background:#00aaff;color:#fff;
+    border:none;border-radius:50px;
+    padding:16px 32px;font-size:1.2em;
+    font-weight:bold;z-index:999;
+    box-shadow:0 8px 20px rgba(0,0,0,.5);
+    animation:pulse 2s infinite;
+    display:none;
+  }
+
+  @keyframes pulse {
+    0%,100%{transform:translate(-50%,-50%) scale(1);}
+    50%{transform:translate(-50%,-50%) scale(1.05);}
+  }
+
+  @media(max-width:768px){#start-btn{display:block;}}
+  #start-btn.active{display:none;}
+
+  #hint {
+    position:fixed;
+    bottom:20px;left:50%;
+    transform:translateX(-50%);
+    background:rgba(0,0,0,.6);
+    color:#fff;
+    padding:8px 16px;
+    border-radius:20px;
+    font-size:14px;
+    opacity:0;
+    transition:opacity .3s;
+    pointer-events:none;
+    z-index:10;
+  }
+  #hint.show {opacity:1;}
+</style>
 </head>
 <body>
 
-  <button id="start-btn">BẮT ĐẦU 3D</button>
-  <div id="hint">Nghiêng điện thoại để xem 3D</div>
+<button id="start-btn">BẮT ĐẦU 3D</button>
+<div id="hint">Nghiêng điện thoại để xem 3D</div>
+<div id="wrapper"><div id="container"></div></div>
 
-  <button id="rotate-btn" title="Xoay ngang">
-    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-      <path d="M21 16v-2a4 4 0 0 0-4-4h-2m-5-4H3a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-6"/>
-      <path d="M17 8h4v4"/>
-    </svg>
-  </button>
+<script>
+const wrapper=document.getElementById('wrapper');
+const container=document.getElementById('container');
+const startBtn=document.getElementById('start-btn');
+const hint=document.getElementById('hint');
 
-  <div id="container-wrapper">
-    <div id="container"></div>
-  </div>
+const totalLayers=5;
+const layers=[];
+const settings=[
+  {z:0,scale:1.8,opacity:1,parallax:0.2},
+  {z:200,scale:1.5,opacity:1,parallax:0.4},
+  {z:335,scale:1.3,opacity:1,parallax:0.6},
+  {z:470,scale:1.1,opacity:0.95,parallax:0.8},
+  {z:535,scale:1.0,opacity:1,parallax:1}
+];
 
-  <script>
-    // === CẤU HÌNH ===
-    const container = document.getElementById('container');
-    const wrapper = document.getElementById('container-wrapper');
-    const startBtn = document.getElementById('start-btn');
-    const hint = document.getElementById('hint');
-    const rotateBtn = document.getElementById('rotate-btn');
-    const layers = [];
-    const totalLayers = 5;
+let is3D=false;
+let tiltX=0,tiltY=0;
+let zoom=1;
+let scrollY=0;
+const MAX_TILT=7; // 👈 Giảm mức xoay tối đa 3 lần so với trước (20 → 7)
 
-    const layerSettings = [
-      { z: 0,   scale: 1.8, opacity: 1.0, parallax: 0.2 },
-      { z: 200, scale: 1.5, opacity: 1.0, parallax: 0.4 },
-      { z: 335, scale: 1.3, opacity: 1.0, parallax: 0.6 },
-      { z: 470, scale: 1.1, opacity: 0.95, parallax: 0.8 },
-      { z: 535, scale: 1.0, opacity: 1.0, parallax: 1.0 }
-    ];
+function render(){
+  if(!is3D)return;
+  container.style.transform=`rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale(${zoom})`;
+  layers.forEach((l,i)=>{
+    const s=settings[i];
+    const offset=scrollY*s.parallax;
+    l.style.transform=`translate(-50%,-50%) translateZ(${s.z}px) translateY(${offset}px) scale(${s.scale})`;
+  });
+}
 
-    const MAX_TILT = 1.53125;
-    let currentZoom = 1;
-    const MIN_ZOOM = 0.5;
-    const MAX_ZOOM = 3.0;
-    let is3DEnabled = false;
-    let scrollY = 0;
+function setupLayers(){
+  for(let i=0;i<totalLayers;i++){
+    const div=document.createElement('div');
+    div.className='layer';
+    const img=new Image();
+    img.src=`img${i+1}.png`; // ⚠️ Đặt 5 ảnh img1.png → img5.png trong cùng thư mục
+    img.onload=()=>div.classList.add('visible');
+    div.appendChild(img);
+    container.appendChild(div);
+    layers.push(div);
+  }
+  render();
+}
 
-    // === RENDER GỘP ===
-    let rafId = null;
-    let needsRender = false;
-    let targetRotX = 0, targetRotY = 0, targetZoom = 1, targetScrollY = 0;
+setupLayers();
 
-    function render() {
-      if (!is3DEnabled || !needsRender) return;
-      needsRender = false;
+// -------- FULLSCREEN -------------
+function goFullscreen(){
+  const el=document.documentElement;
+  if(el.requestFullscreen)el.requestFullscreen();
+  else if(el.webkitRequestFullscreen)el.webkitRequestFullscreen();
+}
 
-      container.style.transform = `rotateX(${targetRotX}deg) rotateY(${targetRotY}deg) scale(${targetZoom})`;
-      layers.forEach((layer, i) => {
-        const s = layerSettings[i];
-        const offset = targetScrollY * s.parallax;
-        layer.el.style.transform = `translate(-50%, -50%) translateZ(${s.z}px) translateY(${offset}px) scale(${s.scale})`;
-      });
+// -------- MOBILE / DESKTOP --------
+const isMobile=/Mobi|Android|iPhone/i.test(navigator.userAgent);
+
+if(!isMobile){
+  is3D=true;
+  goFullscreen();
+  document.addEventListener('mousemove',e=>{
+    const rect=wrapper.getBoundingClientRect();
+    const cx=rect.left+rect.width/2;
+    const cy=rect.top+rect.height/2;
+    tiltY=((e.clientX-cx)/cx)*MAX_TILT;
+    tiltX=-((e.clientY-cy)/cy)*MAX_TILT;
+    render();
+  });
+} else {
+  startBtn.addEventListener('click',()=>{
+    startBtn.classList.add('active');
+    goFullscreen();
+    startSensor();
+    hint.classList.add('show');
+    setTimeout(()=>hint.classList.remove('show'),3000);
+  });
+}
+
+// -------- CẢM BIẾN ỔN ĐỊNH --------
+let smoothX=0,smoothY=0;
+const SMOOTH=0.12;
+
+function startSensor(){
+  is3D=true;
+  if(typeof DeviceOrientationEvent.requestPermission==='function'){
+    DeviceOrientationEvent.requestPermission()
+      .then(state=>{
+        if(state==='granted')window.addEventListener('deviceorientation',handleOri);
+        else fallbackTouch();
+      }).catch(fallbackTouch);
+  } else {
+    window.addEventListener('deviceorientation',handleOri);
+  }
+}
+
+function handleOri(e){
+  if(!is3D)return;
+  let gx=e.gamma||0, gy=e.beta||0;
+  smoothX+= (gx-smoothX)*SMOOTH;
+  smoothY+= (gy-smoothY)*SMOOTH;
+  tiltY=Math.max(-MAX_TILT,Math.min(MAX_TILT,smoothX));
+  tiltX=Math.max(-MAX_TILT,Math.min(MAX_TILT, smoothY-45));
+  render();
+}
+
+// -------- Fallback TOUCH --------
+function fallbackTouch(){
+  let sx=0,sy=0;
+  container.addEventListener('touchstart',e=>{
+    if(e.touches.length===1){
+      sx=e.touches[0].clientX;
+      sy=e.touches[0].clientY;
     }
+  },{passive:true});
+  container.addEventListener('touchmove',e=>{
+    if(e.touches.length!==1)return;
+    const dx=(e.touches[0].clientX-sx)/innerWidth;
+    const dy=(e.touches[0].clientY-sy)/innerHeight;
+    tiltY=dx*MAX_TILT*2;
+    tiltX=-dy*MAX_TILT*2;
+    render();
+  },{passive:true});
+}
 
-    function scheduleRender(rotX, rotY, zoom, parallaxY) {
-      if (!is3DEnabled) return;
-      targetRotX = rotX; targetRotY = rotY; targetZoom = zoom; targetScrollY = parallaxY;
-      if (!needsRender) {
-        needsRender = true;
-        cancelAnimationFrame(rafId);
-        rafId = requestAnimationFrame(render);
-      }
-    }
+// -------- ZOOM / SCROLL --------
+document.addEventListener('wheel',e=>{
+  if(!is3D)return;
+  scrollY=Math.max(-30,Math.min(30,scrollY+e.deltaY*0.05));
+  render();
+},{passive:true});
 
-    // === TẠO LAYER ===
-    for (let i = 0; i < totalLayers; i++) {
-      const div = document.createElement('div');
-      div.className = 'layer';
-      const img = new Image();
-      img.src = `img${i+1}.png`;
-      img.loading = 'eager';
-      img.decoding = 'async';
-      img.draggable = false;
-      div.appendChild(img);
-      container.appendChild(div);
+let pinch=0;
+container.addEventListener('touchmove',e=>{
+  if(e.touches.length===2){
+    const d=Math.hypot(
+      e.touches[0].pageX-e.touches[1].pageX,
+      e.touches[0].pageY-e.touches[1].pageY);
+    if(!pinch)pinch=d;
+    zoom=Math.max(0.6,Math.min(2.5,zoom*(d/pinch)));
+    pinch=d;
+    render();
+  }
+},{passive:true});
+container.addEventListener('touchend',()=>pinch=0);
 
-      const s = layerSettings[i];
-      div.style.opacity = 0;
-      layers.push({ el: div, ...s });
+// -------- XOAY NGANG/DỌC ỔN --------
+function adjustRotate(){
+  if(!isMobile)return;
+  const land=innerWidth>innerHeight;
+  wrapper.style.transform=`translate(-50%,-50%) rotate(${land?0:90}deg)`;
+}
+window.addEventListener('orientationchange',()=>setTimeout(adjustRotate,400));
+adjustRotate();
 
-      img.onload = () => setTimeout(() => scheduleRender(0, 0, currentZoom, scrollY), 50);
-    }
-
-    setTimeout(() => {
-      layers.forEach((l, i) => {
-        setTimeout(() => {
-          l.el.classList.add('visible');
-          l.el.style.opacity = l.opacity;
-        }, i * 30);
-      });
-    }, 100);
-
-    // === FULLSCREEN ===
-    function goFullscreen() {
-      const elem = document.documentElement;
-      if (elem.requestFullscreen) elem.requestFullscreen();
-      else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
-      else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
-    }
-
-    const isDesktop = !/Mobi|Android|iPhone/i.test(navigator.userAgent);
-
-    if (isDesktop) {
-      setTimeout(goFullscreen, 300);
-      is3DEnabled = true;
-      scheduleRender(0, 0, currentZoom, scrollY);
-    } else {
-      startBtn.addEventListener('click', () => {
-        startBtn.classList.add('active');
-        is3DEnabled = true;
-        goFullscreen();
-        startSensor();
-
-        hint.classList.add('show');
-        setTimeout(() => hint.classList.remove('show'), 3000);
-        rotateBtn.classList.add('active');
-      });
-    }
-
-    // ==================================================================
-    // === CẢM BIẾN SIÊU ỔN ĐỊNH – KHÔNG LỖI, KHÔNG LAG ===
-    // ==================================================================
-    let sensorActive = false;
-    let smoothedGamma = 0, smoothedBeta = 0;
-    const SMOOTH_FACTOR = 0.12;
-
-    function startSensor() {
-      if (sensorActive) return;
-      sensorActive = true;
-
-      const handleOrientation = (e) => {
-        if (!is3DEnabled) return;
-
-        const gamma = e.gamma || 0;
-        const beta = e.beta || 0;
-
-        // Lọc nhiễu
-        smoothedGamma += (gamma - smoothedGamma) * SMOOTH_FACTOR;
-        smoothedBeta += (beta - smoothedBeta) * SMOOTH_FACTOR;
-
-        const tiltX = Math.max(-MAX_TILT, Math.min(MAX_TILT, smoothedGamma));
-        const tiltY = Math.max(-MAX_TILT, Math.min(MAX_TILT, smoothedBeta - 45));
-
-        scheduleRender(-tiltY, tiltX, currentZoom, scrollY);
-      };
-
-      if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-        DeviceOrientationEvent.requestPermission()
-          .then(res => {
-            if (res === 'granted') {
-              window.addEventListener('deviceorientation', handleOrientation, { passive: true });
-            } else {
-              fallbackToTouch();
-            }
-          })
-          .catch(() => fallbackToTouch());
-      } else {
-        window.addEventListener('deviceorientation', handleOrientation, { passive: true });
-      }
-    }
-
-    function stopSensor() {
-      if (!sensorActive) return;
-      sensorActive = false;
-      window.removeEventListener('deviceorientation', () => {});
-    }
-
-    function fallbackToTouch() {
-      let startX = 0, startY = 0;
-      container.addEventListener('touchstart', e => {
-        if (e.touches.length === 1) {
-          startX = e.touches[0].clientX;
-          startY = e.touches[0].clientY;
-        }
-      }, { passive: true });
-
-      container.addEventListener('touchmove', e => {
-        if (e.touches.length !== 1) return;
-        const dx = (e.touches[0].clientX - startX) / window.innerWidth;
-        const dy = (e.touches[0].clientY - startY) / window.innerHeight;
-        const tiltX = dx * MAX_TILT * 2;
-        const tiltY = dy * MAX_TILT * 2;
-        scheduleRender(-tiltY, tiltX, currentZoom, scrollY);
-      }, { passive: true });
-    }
-
-    // === SCROLL & ZOOM ===
-    let touchY = 0, isScrolling = false;
-    function handleScroll(delta) {
-      scrollY = Math.max(-25, Math.min(25, scrollY + delta));
-      scheduleRender(-smoothedBeta + 45, smoothedGamma, currentZoom, scrollY);
-    }
-
-    document.addEventListener('wheel', e => {
-      if (!is3DEnabled) return;
-      requestAnimationFrame(() => handleScroll(e.deltaY * 0.08));
-    }, { passive: true });
-
-    container.addEventListener('touchstart', e => {
-      if (!is3DEnabled) return;
-      touchY = e.touches[0].clientY;
-      isScrolling = true;
-    }, { passive: true });
-
-    container.addEventListener('touchmove', e => {
-      if (!is3DEnabled || !isScrolling) return;
-      const delta = (touchY - e.touches[0].clientY) * 0.6;
-      touchY = e.touches[0].clientY;
-      handleScroll(delta);
-    }, { passive: true });
-
-    container.addEventListener('touchend', () => { isScrolling = false; });
-
-    // === ZOOM ===
-    let pinchStart = 0;
-    container.addEventListener('touchstart', e => {
-      if (e.touches.length === 2) {
-        pinchStart = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
-      }
-    }, { passive: true });
-
-    container.addEventListener('touchmove', e => {
-      if (e.touches.length === 2) {
-        const dist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
-        const delta = dist / pinchStart;
-        currentZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, currentZoom * delta));
-        pinchStart = dist;
-        scheduleRender(-smoothedBeta + 45, smoothedGamma, currentZoom, scrollY);
-      }
-    }, { passive: true });
-
-    // === XOAY MÀN HÌNH – KHÔNG GÂY LỖI ===
-    function updateOrientation() {
-      if (isDesktop || !is3DEnabled) return;
-
-      const isLandscape = window.innerWidth > window.innerHeight;
-      wrapper.style.width = isLandscape ? '100vw' : '100vh';
-      wrapper.style.height = isLandscape ? '100vh' : '100vw';
-      wrapper.style.transform = `translate(-50%, -50%) rotate(${isLandscape ? 0 : 90}deg)`;
-      rotateBtn.classList.toggle('active', !isLandscape);
-    }
-
-    // Dùng debounce nhẹ
-    let resizeTimer;
-    window.addEventListener('orientationchange', () => {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(updateOrientation, 100);
-    });
-    window.addEventListener('resize', () => {
-      clearTimeout(resizeTimer);
-      resizeTimer = setTimeout(updateOrientation, 100);
-    });
-    updateOrientation();
-
-    // === DESKTOP MOUSE ===
-    if (isDesktop) {
-      let mouseRaf = null;
-      document.addEventListener('mousemove', e => {
-        const rect = wrapper.getBoundingClientRect();
-        const cx = rect.left + rect.width / 2;
-        const cy = rect.top + rect.height / 2;
-        const mouseX = ((e.clientX - cx) / cx) * MAX_TILT;
-        const mouseY = ((e.clientY - cy) / cy) * MAX_TILT;
-
-        cancelAnimationFrame(mouseRaf);
-        mouseRaf = requestAnimationFrame(() => {
-          scheduleRender(mouseY, mouseX, currentZoom, scrollY);
-        });
-      }, { passive: true });
-
-      document.addEventListener('mouseleave', () => scheduleRender(0, 0, currentZoom, scrollY));
-    }
-
-    // === DỪNG KHI THOÁT ===
-    window.addEventListener('pagehide', stopSensor);
-    window.addEventListener('blur', stopSensor);
-  </script>
+</script>
 </body>
 </html>
