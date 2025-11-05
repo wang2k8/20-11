@@ -3,23 +3,24 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>3D Viewer - Tự Động Xoay Ngang</title>
+  <title>3D Viewer - Full Màn Hình Tự Động</title>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
     body, html { height:100%; overflow:hidden; background:#000; font-family:sans-serif; touch-action: none; }
     
-    /* Container 3D - TỰ ĐỘNG XOAY NGANG */
+    /* WRAPPER TỰ ĐỘNG XOAY (mobile only) */
     #container-wrapper {
-      width: 100vh; height: 100vw;
       position: absolute; top: 50%; left: 50%;
-      transform: translate(-50%, -50%) rotate(90deg);
-      transform-origin: center;
+      transform: translate(-50%, -50%);
+      width: 100vw; height: 100vh;
       perspective: 1200px;
     }
-    @media (orientation: landscape) {
+
+    /* MOBILE: xoay nội dung 3D khi dọc */
+    @media (orientation: portrait) and (max-width: 768px) {
       #container-wrapper {
-        width: 100vw; height: 100vh;
-        transform: translate(-50%, -50%) rotate(0deg);
+        width: 100vh; height: 100vw;
+        transform: translate(-50%, -50%) rotate(90deg);
       }
     }
 
@@ -46,7 +47,7 @@
     }
     .layer.visible { opacity: 1; }
 
-    /* NÚT BẮT ĐẦU */
+    /* NÚT BẮT ĐẦU (mobile) */
     #start-btn {
       position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
       background: #00aaff; color: white; border: none; border-radius: 50px;
@@ -72,13 +73,9 @@
 </head>
 <body>
 
-  <!-- NÚT BẮT ĐẦU (mobile) -->
   <button id="start-btn">BẮT ĐẦU 3D</button>
-
-  <!-- GỢI Ý ZOOM -->
   <div id="hint">Kéo 2 ngón / Cuộn chuột để zoom</div>
 
-  <!-- WRAPPER TỰ ĐỘNG XOAY NGANG -->
   <div id="container-wrapper">
     <div id="container"></div>
   </div>
@@ -106,6 +103,39 @@
     const MAX_ZOOM = 3.0;
     let is3DEnabled = false;
     let lastBeta = 0, lastGamma = 0;
+
+    // === FULL MÀN HÌNH TỰ ĐỘNG ===
+    function goFullscreen() {
+      const elem = document.documentElement;
+      if (elem.requestFullscreen) elem.requestFullscreen();
+      else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+      else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
+    }
+
+    // === TỰ ĐỘNG FULL MÀN HÌNH KHI MỞ TRANG ===
+    const isDesktop = !/Mobi|Android|iPhone/i.test(navigator.userAgent);
+    if (isDesktop) {
+      // PC: mở full ngay
+      setTimeout(goFullscreen, 500);
+    } else {
+      // Mobile: xoay ngang + full khi nhấn nút
+      startBtn.addEventListener('click', () => {
+        startBtn.classList.add('active');
+        is3DEnabled = true;
+        goFullscreen(); // Full màn hình sau khi nhấn
+
+        if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+          DeviceOrientationEvent.requestPermission().then(res => {
+            if (res === 'granted') startSensor();
+          });
+        } else {
+          startSensor();
+        }
+
+        hint.classList.add('show');
+        setTimeout(() => hint.classList.remove('show'), 4000);
+      });
+    }
 
     // Tạo layer
     for (let i = 0; i < totalLayers; i++) {
@@ -138,24 +168,7 @@
       container.style.transform = `rotateX(${rotX}deg) rotateY(${rotY}deg) scale(${zoom})`;
     }
 
-    // === BẬT 3D ===
-    startBtn.addEventListener('click', () => {
-      startBtn.classList.add('active');
-      is3DEnabled = true;
-
-      if (typeof DeviceOrientationEvent.requestPermission === 'function') {
-        DeviceOrientationEvent.requestPermission().then(res => {
-          if (res === 'granted') startSensor();
-        });
-      } else {
-        startSensor();
-      }
-
-      hint.classList.add('show');
-      setTimeout(() => hint.classList.remove('show'), 4000);
-    });
-
-    // === CẢM BIẾN ===
+    // === CẢM BIẾN (mobile) ===
     function startSensor() {
       window.addEventListener('deviceorientation', e => {
         if (!is3DEnabled) return;
@@ -193,16 +206,15 @@
       applyTransform(-lastBeta + 45, lastGamma, currentZoom);
     }, { passive: false });
 
-    // === DESKTOP ===
-    const isDesktop = !/Mobi|Android|iPhone/i.test(navigator.userAgent);
+    // === DESKTOP: CHUỘT + WHEEL ===
     if (isDesktop) {
       is3DEnabled = true;
       let mouseX = 0, mouseY = 0;
 
-      document.labelEventListener('mousemove', e => {
+      document.addEventListener('mousemove', e => {
         const rect = wrapper.getBoundingClientRect();
-        const cx = rect.left + rect.width/2;
-        const cy = rect.top + rect.height/2;
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
         mouseX = ((e.clientX - cx) / cx) * MAX_TILT;
         mouseY = ((e.clientY - cy) / cy) * MAX_TILT;
         applyTransform(mouseY, mouseX, currentZoom);
@@ -221,14 +233,19 @@
       setTimeout(() => hint.classList.remove('show'), 5000);
     }
 
-    // === TỰ ĐỘNG XOAY THEO ORIENTATION ===
+    // === TỰ ĐỘNG XOAY NỘI DUNG 3D (mobile only) ===
     function updateOrientation() {
+      if (isDesktop) return;
       const isLandscape = window.innerHeight < window.innerWidth;
-      wrapper.style.transform = isLandscape
-        ? 'translate(-50%, -50%) rotate(0deg)'
-        : 'translate(-50%, -50%) rotate(90deg)';
-      wrapper.style.width = isLandscape ? '100vw' : '100vh';
-      wrapper.style.height = isLandscape ? '100vh' : '100vw';
+      if (isLandscape) {
+        wrapper.style.width = '100vw';
+        wrapper.style.height = '100vh';
+        wrapper.style.transform = 'translate(-50%, -50%) rotate(0deg)';
+      } else {
+        wrapper.style.width = '100vh';
+        wrapper.style.height = '100vw';
+        wrapper.style.transform = 'translate(-50%, -50%) rotate(90deg)';
+      }
     }
     window.addEventListener('orientationchange', updateOrientation);
     window.addEventListener('resize', updateOrientation);
