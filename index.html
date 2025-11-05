@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>3D Layer 2n</title>
+<title>3D Layer 3n</title>
 <style>
   * {margin:0;padding:0;box-sizing:border-box;}
   html,body {
@@ -168,134 +168,82 @@ if(!isMobile){
   });
 }
 
-// -------- CẢM BIẾN ỔN ĐỊNH & XOAY NGANG --------
-let smoothX = 0, smoothY = 0;
-const SMOOTH = 0.08; // mượt hơn (0.12 → 0.08)
-let orientation = window.orientation || 0; // lưu hướng xoay hiện tại
+// -------- CẢM BIẾN ỔN ĐỊNH --------
+let smoothX=0,smoothY=0;
+const SMOOTH=0.12;
 
-function startSensor() {
-  is3D = true;
-  if (typeof DeviceOrientationEvent.requestPermission === 'function') {
+function startSensor(){
+  is3D=true;
+  if(typeof DeviceOrientationEvent.requestPermission==='function'){
     DeviceOrientationEvent.requestPermission()
-      .then(state => {
-        if (state === 'granted') {
-          window.addEventListener('deviceorientation', handleOri);
-          window.addEventListener('orientationchange', () => {
-            orientation = window.orientation || 0;
-          });
-        } else fallbackTouch();
-      })
-      .catch(fallbackTouch);
+      .then(state=>{
+        if(state==='granted')window.addEventListener('deviceorientation',handleOri);
+        else fallbackTouch();
+      }).catch(fallbackTouch);
   } else {
-    window.addEventListener('deviceorientation', handleOri);
-    window.addEventListener('orientationchange', () => {
-      orientation = window.orientation || 0;
-    });
+    window.addEventListener('deviceorientation',handleOri);
   }
 }
 
-function handleOri(e) {
-  if (!is3D) return;
-
-  let gx = e.gamma || 0; // nghiêng trái/phải
-  let gy = e.beta || 0;  // nghiêng trước/sau
-
-  // Lấy góc xoay màn hình (trên iOS có thể là undefined)
-  let angle = 0;
-  if (screen.orientation && typeof screen.orientation.angle === 'number') {
-    angle = screen.orientation.angle;
-  } else if (typeof window.orientation === 'number') {
-    angle = window.orientation;
-  }
-
-  // Chuẩn hóa giá trị góc (đề phòng thiết bị trả -90)
-  if (angle === -90) angle = 270;
-
-  // Hiệu chỉnh theo hướng xoay
-  let tx = gx, ty = gy;
-  switch (angle) {
-    case 0: // dọc
-      tx = gx;
-      ty = gy;
-      break;
-    case 90: // xoay ngang trái
-      tx = gy;
-      ty = -gx;
-      break;
-    case 180: // lật ngược
-      tx = -gx;
-      ty = -gy;
-      break;
-    case 270: // xoay ngang phải
-      tx = -gy;
-      ty = gx;
-      break;
-  }
-
-  // Lọc mượt
-  smoothX += (tx - smoothX) * SMOOTH;
-  smoothY += (ty - smoothY) * SMOOTH;
-
-  // Giới hạn và bù góc
-  tiltY = Math.max(-MAX_TILT, Math.min(MAX_TILT, smoothX));
-  tiltX = Math.max(-MAX_TILT, Math.min(MAX_TILT, smoothY - 40)); // giảm bù góc dọc
-
-  needRender = true;
+function handleOri(e){
+  if(!is3D)return;
+  let gx=e.gamma||0, gy=e.beta||0;
+  smoothX+= (gx-smoothX)*SMOOTH;
+  smoothY+= (gy-smoothY)*SMOOTH;
+  tiltY=Math.max(-MAX_TILT,Math.min(MAX_TILT,smoothX));
+  tiltX=Math.max(-MAX_TILT,Math.min(MAX_TILT, smoothY-45));
+  render();
 }
 
 // -------- Fallback TOUCH --------
-function fallbackTouch() {
-  let sx = 0, sy = 0;
-  container.addEventListener('touchstart', e => {
-    if (e.touches.length === 1) {
-      sx = e.touches[0].clientX;
-      sy = e.touches[0].clientY;
+function fallbackTouch(){
+  let sx=0,sy=0;
+  container.addEventListener('touchstart',e=>{
+    if(e.touches.length===1){
+      sx=e.touches[0].clientX;
+      sy=e.touches[0].clientY;
     }
-  }, { passive: true });
-
-  container.addEventListener('touchmove', e => {
-    if (e.touches.length !== 1) return;
-    const dx = (e.touches[0].clientX - sx) / innerWidth;
-    const dy = (e.touches[0].clientY - sy) / innerHeight;
-    tiltY = dx * MAX_TILT * 2;
-    tiltX = -dy * MAX_TILT * 2;
+  },{passive:true});
+  container.addEventListener('touchmove',e=>{
+    if(e.touches.length!==1)return;
+    const dx=(e.touches[0].clientX-sx)/innerWidth;
+    const dy=(e.touches[0].clientY-sy)/innerHeight;
+    tiltY=dx*MAX_TILT*2;
+    tiltX=-dy*MAX_TILT*2;
     render();
-  }, { passive: true });
+  },{passive:true});
 }
 
 // -------- ZOOM / SCROLL --------
-document.addEventListener('wheel', e => {
-  if (!is3D) return;
-  scrollY = Math.max(-30, Math.min(30, scrollY + e.deltaY * 0.05));
+document.addEventListener('wheel',e=>{
+  if(!is3D)return;
+  scrollY=Math.max(-30,Math.min(30,scrollY+e.deltaY*0.05));
   render();
-}, { passive: true });
+},{passive:true});
 
-let pinch = 0;
-container.addEventListener('touchmove', e => {
-  if (e.touches.length === 2) {
-    const d = Math.hypot(
-      e.touches[0].pageX - e.touches[1].pageX,
-      e.touches[0].pageY - e.touches[1].pageY
-    );
-    if (!pinch) pinch = d;
-    zoom = Math.max(0.6, Math.min(2.5, zoom * (d / pinch)));
-    pinch = d;
+let pinch=0;
+container.addEventListener('touchmove',e=>{
+  if(e.touches.length===2){
+    const d=Math.hypot(
+      e.touches[0].pageX-e.touches[1].pageX,
+      e.touches[0].pageY-e.touches[1].pageY);
+    if(!pinch)pinch=d;
+    zoom=Math.max(0.6,Math.min(2.5,zoom*(d/pinch)));
+    pinch=d;
     render();
   }
-}, { passive: true });
-container.addEventListener('touchend', () => pinch = 0);
+},{passive:true});
+container.addEventListener('touchend',()=>pinch=0);
 
 // -------- XOAY NGANG/DỌC ỔN --------
-function adjustRotate() {
-  if (!isMobile) return;
-  const land = innerWidth > innerHeight;
-  // Không ép xoay cứng, chỉ giữ khung trung tâm
-  wrapper.style.transform = `translate(-50%,-50%) ${land ? '' : 'rotate(90deg)'}`;
+function adjustRotate(){
+  if(!isMobile)return;
+  const land=innerWidth>innerHeight;
+  wrapper.style.transform=`translate(-50%,-50%) rotate(${land?0:90}deg)`;
 }
-window.addEventListener('orientationchange', () => setTimeout(adjustRotate, 400));
+window.addEventListener('orientationchange',()=>setTimeout(adjustRotate,400));
 adjustRotate();
 
 </script>
 </body>
 </html>
-
