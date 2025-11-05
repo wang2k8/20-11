@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-<title>3D Layer 1n</title>
+<title>3D Layer 1n - Nâng cấp</title>
 <style>
   * {margin:0;padding:0;box-sizing:border-box;}
   html,body {
@@ -66,6 +66,19 @@
   @media(max-width:768px){#start-btn{display:block;}}
   #start-btn.active{display:none;}
 
+  #calibrate-btn {
+    position:fixed;
+    top:20px;right:20px;
+    background:#ffaa00;color:#fff;
+    border:none;border-radius:50px;
+    padding:12px 24px;font-size:1em;
+    font-weight:bold;z-index:999;
+    box-shadow:0 4px 10px rgba(0,0,0,.5);
+    display:none;
+    cursor:pointer;
+  }
+  #calibrate-btn.show{display:block;}
+
   #hint {
     position:fixed;
     bottom:20px;left:50%;
@@ -86,13 +99,15 @@
 <body>
 
 <button id="start-btn">BẮT ĐẦU 3D</button>
-<div id="hint">Nghiêng điện thoại để xem 3D</div>
+<button id="calibrate-btn">Hiệu chuẩn</button>
+<div id="hint">Nghiêng điện thoại để xem 3D (Chạm để ẩn)</div>
 <div id="wrapper"><div id="container"></div></div>
 
 <script>
 const wrapper=document.getElementById('wrapper');
 const container=document.getElementById('container');
 const startBtn=document.getElementById('start-btn');
+const calibrateBtn=document.getElementById('calibrate-btn');
 const hint=document.getElementById('hint');
 
 const totalLayers=5;
@@ -106,27 +121,37 @@ const settings=[
 ];
 
 let is3D=false;
-let tiltX=0,tiltY=0;
+let tiltX=0,tiltY=0,tiltZ=0;
 let zoom=1;
 let scrollY=0;
-const MAX_TILT=7; // 👈 Giảm mức xoay tối đa 3 lần so với trước (20 → 7)
+const MAX_TILT=1.8; // Giữ nguyên mức xoay tối đa
+const MAX_TILT_Z=45; // Mức xoay Z tối đa (mới)
+
+let needRender=false; // Cho RAF
 
 function render(){
   if(!is3D)return;
-  container.style.transform=`rotateX(${tiltX}deg) rotateY(${tiltY}deg) scale(${zoom})`;
+  container.style.transform=`rotateX(${tiltX}deg) rotateY(${tiltY}deg) rotateZ(${tiltZ}deg) scale(${zoom})`;
   layers.forEach((l,i)=>{
     const s=settings[i];
     const offset=scrollY*s.parallax;
     l.style.transform=`translate(-50%,-50%) translateZ(${s.z}px) translateY(${offset}px) scale(${s.scale})`;
   });
+  needRender=false;
 }
+
+function animate(){
+  if(needRender)render();
+  requestAnimationFrame(animate);
+}
+animate(); // Bắt đầu RAF loop
 
 function setupLayers(){
   for(let i=0;i<totalLayers;i++){
     const div=document.createElement('div');
     div.className='layer';
     const img=new Image();
-    img.src=`img${i+1}.png`; // ⚠️ Đặt 5 ảnh img1.png → img5.png trong cùng thư mục
+    img.src=`img${i+1}.png`; // Đặt 5 ảnh img1.png → img5.png trong cùng thư mục
     img.onload=()=>div.classList.add('visible');
     div.appendChild(img);
     container.appendChild(div);
@@ -156,21 +181,29 @@ if(!isMobile){
     const cy=rect.top+rect.height/2;
     tiltY=((e.clientX-cx)/cx)*MAX_TILT;
     tiltX=-((e.clientY-cy)/cy)*MAX_TILT;
-    render();
+    needRender=true; // Trigger render qua RAF
   });
 } else {
   startBtn.addEventListener('click',()=>{
     startBtn.classList.add('active');
+    calibrateBtn.classList.add('show');
     goFullscreen();
     startSensor();
     hint.classList.add('show');
-    setTimeout(()=>hint.classList.remove('show'),3000);
+    setTimeout(()=>hint.classList.remove('show'),5000); // Hiển thị lâu hơn
   });
+  calibrateBtn.addEventListener('click',()=>{
+    smoothX=0;smoothY=0;smoothZ=0;
+    tiltX=0;tiltY=0;tiltZ=0;
+    needRender=true;
+  });
+  hint.addEventListener('click',()=>hint.classList.remove('show')); // Cho phép tắt hint
 }
 
-// -------- CẢM BIẾN ỔN ĐỊNH --------
-let smoothX=0,smoothY=0;
-const SMOOTH=0.12;
+// -------- CẢM BIẾN ỔN ĐỊNH (Nâng cấp) --------
+let smoothX=0,smoothY=0,smoothZ=0;
+const SMOOTH=0.15; // Tăng smoothing
+const DEADZONE=0.1; // Deadzone để tránh jitter
 
 function startSensor(){
   is3D=true;
@@ -187,17 +220,25 @@ function startSensor(){
 
 function handleOri(e){
   if(!is3D)return;
-  let gx=e.gamma||0, gy=e.beta||0;
-  smoothX+= (gx-smoothX)*SMOOTH;
-  smoothY+= (gy-smoothY)*SMOOTH;
+  let gx=e.gamma||0, gy=e.beta||0, gz=e.alpha||0;
+  // Áp dụng deadzone
+  if(Math.abs(gx)<DEADZONE)gx=0;
+  if(Math.abs(gy)<DEADZONE)gy=0;
+  if(Math.abs(gz)<DEADZONE)gz=0;
+  // Smoothing
+  smoothX+=(gx-smoothX)*SMOOTH;
+  smoothY+=(gy-smoothY)*SMOOTH;
+  smoothZ+=(gz-smoothZ)*SMOOTH;
+  // Giới hạn
   tiltY=Math.max(-MAX_TILT,Math.min(MAX_TILT,smoothX));
   tiltX=Math.max(-MAX_TILT,Math.min(MAX_TILT, smoothY-45));
-  render();
+  tiltZ=Math.max(-MAX_TILT_Z,Math.min(MAX_TILT_Z,smoothZ));
+  needRender=true; // Trigger render qua RAF
 }
 
-// -------- Fallback TOUCH --------
+// -------- Fallback TOUCH (Nâng cấp) --------
 function fallbackTouch(){
-  let sx=0,sy=0;
+  let sx=0,sy=0, smoothTouchX=0, smoothTouchY=0;
   container.addEventListener('touchstart',e=>{
     if(e.touches.length===1){
       sx=e.touches[0].clientX;
@@ -208,9 +249,12 @@ function fallbackTouch(){
     if(e.touches.length!==1)return;
     const dx=(e.touches[0].clientX-sx)/innerWidth;
     const dy=(e.touches[0].clientY-sy)/innerHeight;
-    tiltY=dx*MAX_TILT*2;
-    tiltX=-dy*MAX_TILT*2;
-    render();
+    // Smoothing cho touch
+    smoothTouchX+=(dx-smoothTouchX)*SMOOTH;
+    smoothTouchY+=(dy-smoothTouchY)*SMOOTH;
+    tiltY=smoothTouchX*MAX_TILT*2;
+    tiltX=-smoothTouchY*MAX_TILT*2;
+    needRender=true;
   },{passive:true});
 }
 
@@ -218,7 +262,7 @@ function fallbackTouch(){
 document.addEventListener('wheel',e=>{
   if(!is3D)return;
   scrollY=Math.max(-30,Math.min(30,scrollY+e.deltaY*0.05));
-  render();
+  needRender=true;
 },{passive:true});
 
 let pinch=0;
@@ -230,7 +274,7 @@ container.addEventListener('touchmove',e=>{
     if(!pinch)pinch=d;
     zoom=Math.max(0.6,Math.min(2.5,zoom*(d/pinch)));
     pinch=d;
-    render();
+    needRender=true;
   }
 },{passive:true});
 container.addEventListener('touchend',()=>pinch=0);
@@ -247,4 +291,3 @@ adjustRotate();
 </script>
 </body>
 </html>
-
