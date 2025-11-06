@@ -1,102 +1,119 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Parallax - Chỉ Xoay Ảnh</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Parallax Image Viewer - Mobile Horizontal Fix</title>
     <style>
-        * { margin:0; padding:0; box-sizing:border-box; }
-        html, body {
-            height: 100%;
-            background: #fff; /* nền trắng */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            margin: 0;
             overflow: hidden;
-            touch-action: none;
+            background: #fff;  /* Đổi nền từ đen (#000) thành trắng (#fff) */
+            height: 100vh;
+            height: 100dvh;
         }
         .container {
-            position: fixed;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            height: 100dvh;
         }
         img {
             position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             max-width: 100%;
             max-height: 100%;
-            object-fit: contain;
+            object-fit: contain;  /* Giữ nguyên để ảnh vừa khớp màn hình nhất (không cắt, giữ tỷ lệ) */
             pointer-events: none;
-            user-select: none;
-            transition: transform 0.08s ease-out;
+            transition: transform 0.05s ease-out;
         }
-        /* Chỉ xoay ảnh khi điện thoại DỌC */
+        #img1 { z-index: 5; }
+        #img2 { z-index: 4; }
+        #img3 { z-index: 3; }
+        #img4 { z-index: 2; }
+        #img5 { z-index: 1; }
+
+        /* ================== ĐIỆN THOẠI DỌC → CHỈ XOAY ẢNH 90° (KHÔNG XOAY TRANG) ================== */
         @media (orientation: portrait) and (max-width: 768px) {
-            .container {
-                transform: rotate(90deg);
+            img {
+                /* Chỉ xoay ảnh 90° để hiển thị ngang, không xoay container/trang */
+                transform: translate(-50%, -50%) rotate(90deg);
             }
-            /* Đổi chiều để ảnh vẫn full sau khi xoay */
-            html, body { width: 100vh; height: 100vw; }
-            .container { width: 100vh; height: 100vw; }
         }
-        /* iOS fix */
+        /* iOS Safari fix: dùng 100dvh / 100dvw nếu hỗ trợ */
         @supports (height: 100dvh) {
             @media (orientation: portrait) and (max-width: 768px) {
-                html, body { width: 100dvh; height: 100dvw; }
-                .container { width: 100dvh; height: 100dvw; }
+                /* Không cần thay đổi gì thêm, vì đã xoay ảnh */
             }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <img id="l5" src="img1.png"> <!-- xa nhất -->
-        <img id="l4" src="img2.png">
-        <img id="l3" src="img3.png">
-        <img id="l2" src="img4.png">
-        <img id="l1" src="img5.png"> <!-- gần nhất -->
+        <img id="img5" src="img1.png" alt="Layer 5">
+        <img id="img4" src="img2.png" alt="Layer 4">
+        <img id="img3" src="img3.png" alt="Layer 3">
+        <img id="img2" src="img4.png" alt="Layer 2">
+        <img id="img1" src="img5.png" alt="Layer 1">
     </div>
 
     <script>
-        const layers = [
-            {el: document.getElementById('l1'), s: 0.12},
-            {el: document.getElementById('l2'), s: 0.30},
-            {el: document.getElementById('l3'), s: 0.55},
-            {el: document.getElementById('l4'), s: 0.80},
-            {el: document.getElementById('l5'), s: 1.00}
+        const imgs = [
+            { el: document.getElementById('img1'), factor: 0.1 },
+            { el: document.getElementById('img2'), factor: 0.3 },
+            { el: document.getElementById('img3'), factor: 0.6 },
+            { el: document.getElementById('img4'), factor: 0.8 },
+            { el: document.getElementById('img5'), factor: 1.0 }
         ];
-        const max = 90;
-        const mobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-        function move(x, y) {
-            layers.forEach(l => {
-                const mx = Math.tanh(x * l.s / max) * max;
-                const my = Math.tanh(y * l.s / max) * max;
-                l.el.style.transform = 
-                    `translate(${mx}px, ${my}px) rotateY(${x*0.15}deg) rotateX(${-y*0.1}deg)`;
-            });
-        }
+        const maxMove = 120;
+        let isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-        if (mobile) {
-            window.addEventListener('deviceorientation', e => {
-                if (e.gamma === null) return;
-                let x = e.gamma;   // -90 ~ 90
-                let y = e.beta;
-                if (y > 90) y = 90;
-                if (y < -90) y = -90;
-                move(x * 2.4, y * 2.4);
+        if (isMobile) {
+            window.addEventListener('deviceorientation', (event) => {
+                if (event.gamma === null) return; // Một số thiết bị không hỗ trợ
+                let gamma = event.gamma; // -90 to 90 (giữ nguyên trục nghiêng)
+                let beta = event.beta;   // -180 to 180 (giữ nguyên trục nghiêng)
+
+                // Chuẩn hóa beta về khoảng -90 to 90 (giữ nguyên)
+                if (beta > 90) beta = 90;
+                if (beta < -90) beta = -90;
+
+                updateParallax(gamma * 2.2, beta * 2.2);
             });
         } else {
-            document.addEventListener('mousemove', e => {
-                const x = (e.clientX / innerWidth - 0.5) * 2;
-                const y = (e.clientY / innerHeight - 0.5) * 2;
-                move(x * 60, y * 60);
+            document.addEventListener('mousemove', (event) => {
+                const mouseX = (event.clientX / window.innerWidth - 0.5) * 2;
+                const mouseY = (event.clientY / window.innerHeight - 0.5) * 2;
+                updateParallax(mouseX * 60, mouseY * 60);
             });
         }
 
-        // Reset khi xoay màn hình
-        window.addEventListener('orientationchange', () => setTimeout(() => move(0,0), 400));
-        window.addEventListener('resize', () => setTimeout(() => move(0,0), 200));
-        
-        move(0, 0);
+        function updateParallax(deltaX, deltaY) {
+            imgs.forEach(img => {
+                const easedX = Math.tanh(deltaX * img.factor / maxMove) * maxMove;
+                const easedY = Math.tanh(deltaY * img.factor / maxMove) * maxMove;
+
+                let rotate = 0;
+                if (isMobile) {
+                    rotate = deltaX * 0.12; // Nhẹ nhàng hơn, giữ nguyên logic
+                }
+
+                // Thêm rotate(90deg) nếu trong portrait (để ảnh xoay ngang), nhưng script vẫn áp dụng parallax như cũ
+                let baseTransform = 'translate(-50%, -50%)';
+                if (window.innerHeight > window.innerWidth && isMobile) {  // Phát hiện portrait
+                    baseTransform += ' rotate(90deg)';
+                }
+                img.el.style.transform = 
+                    `${baseTransform} translate(${easedX}px, ${easedY}px) rotate(${rotate}deg)`;
+            });
+        }
+
+        // Khởi động lần đầu
+        updateParallax(0, 0);
     </script>
 </body>
 </html>
