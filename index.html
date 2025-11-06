@@ -3,117 +3,99 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>3D Parallax Fullscreen - Nền Trắng</title>
+    <title>Parallax - Chỉ Xoay Ảnh</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
+        * { margin:0; padding:0; box-sizing:border-box; }
         html, body {
             height: 100%;
-            background: #fff; /* NỀN TRẮNG */
+            background: #fff; /* nền trắng */
             overflow: hidden;
-        }
-        .wrapper {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100vw;
-            height: 100vh;
-            perspective: 1000px;
+            touch-action: none;
         }
         .container {
-            position: absolute;
-            top: 50%; left: 50%;
-            width: 100vmax;
-            height: 100vmax;
-            transform: translate(-50%, -50%);
+            position: fixed;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         img {
             position: absolute;
-            top: 50%; left: 50%;
-            width: 100vmax;
-            height: 100vmax;
-            object-fit: cover;
-            transform: translate(-50%, -50%);
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
             pointer-events: none;
             user-select: none;
             transition: transform 0.08s ease-out;
         }
-        #img1 { z-index: 5; }
-        #img2 { z-index: 4; }
-        #img3 { z-index: 3; }
-        #img4 { z-index: 2; }
-        #img5 { z-index: 1; }
-
-        /* ĐIỆN THOẠI DỌC → XOAY 90° + FULL MÀN HÌNH */
+        /* Chỉ xoay ảnh khi điện thoại DỌC */
         @media (orientation: portrait) and (max-width: 768px) {
-            html, body {
-                height: 100vw;
-                width: 100vh;
-            }
-            .wrapper {
+            .container {
                 transform: rotate(90deg);
-                transform-origin: center;
-                width: 100vh;
-                height: 100vw;
-                top: 50% !important;
-                left: 50% !important;
-                transform: translate(-50%, -50%) rotate(90deg);
+            }
+            /* Đổi chiều để ảnh vẫn full sau khi xoay */
+            html, body { width: 100vh; height: 100vw; }
+            .container { width: 100vh; height: 100vw; }
+        }
+        /* iOS fix */
+        @supports (height: 100dvh) {
+            @media (orientation: portrait) and (max-width: 768px) {
+                html, body { width: 100dvh; height: 100dvw; }
+                .container { width: 100dvh; height: 100dvw; }
             }
         }
     </style>
 </head>
 <body>
-    <div class="wrapper">
-        <div class="container">
-            <img id="img5" src="img1.png" alt="bg">
-            <img id="img4" src="img2.png" alt="4">
-            <img id="img3" src="img3.png" alt="3">
-            <img id="img2" src="img4.png" alt="2">
-            <img id="img1" src="img5.png" alt="fg">
-        </div>
+    <div class="container">
+        <img id="l5" src="img1.png"> <!-- xa nhất -->
+        <img id="l4" src="img2.png">
+        <img id="l3" src="img3.png">
+        <img id="l2" src="img4.png">
+        <img id="l1" src="img5.png"> <!-- gần nhất -->
     </div>
 
     <script>
         const layers = [
-            { el: document.getElementById('img1'), speed: 0.1 },
-            { el: document.getElementById('img2'), speed: 0.3 },
-            { el: document.getElementById('img3'), speed: 0.55 },
-            { el: document.getElementById('img4'), speed: 0.8 },
-            { el: document.getElementById('img5'), speed: 1.0 }
+            {el: document.getElementById('l1'), s: 0.12},
+            {el: document.getElementById('l2'), s: 0.30},
+            {el: document.getElementById('l3'), s: 0.55},
+            {el: document.getElementById('l4'), s: 0.80},
+            {el: document.getElementById('l5'), s: 1.00}
         ];
+        const max = 90;
+        const mobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-        const maxMove = 80;
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        function move(x, y) {
+            layers.forEach(l => {
+                const mx = Math.tanh(x * l.s / max) * max;
+                const my = Math.tanh(y * l.s / max) * max;
+                l.el.style.transform = 
+                    `translate(${mx}px, ${my}px) rotateY(${x*0.15}deg) rotateX(${-y*0.1}deg)`;
+            });
+        }
 
-        if (isMobile) {
+        if (mobile) {
             window.addEventListener('deviceorientation', e => {
-                if (!e.gamma) return;
-                let x = e.gamma;  // -90 -> 90
-                let y = e.beta;   // -180 -> 180
+                if (e.gamma === null) return;
+                let x = e.gamma;   // -90 ~ 90
+                let y = e.beta;
                 if (y > 90) y = 90;
                 if (y < -90) y = -90;
-                move(x * 2.5, y * 2.5);
+                move(x * 2.4, y * 2.4);
             });
         } else {
             document.addEventListener('mousemove', e => {
-                const x = (e.clientX / window.innerWidth - 0.5) * 2;
-                const y = (e.clientY / window.innerHeight - 0.5) * 2;
-                move(x * 55, y * 55);
+                const x = (e.clientX / innerWidth - 0.5) * 2;
+                const y = (e.clientY / innerHeight - 0.5) * 2;
+                move(x * 60, y * 60);
             });
         }
 
-        function move(deltaX, deltaY) {
-            layers.forEach(layer => {
-                const moveX = Math.tanh(deltaX * layer.speed / maxMove) * maxMove;
-                const moveY = Math.tanh(deltaY * layer.speed / maxMove) * maxMove;
-                const rotateY = deltaX * 0.12;
-                const rotateX = -deltaY * 0.08;
-
-                layer.el.style.transform = 
-                    `translate(-50%, -50%) translate(${moveX}px, ${moveY}px) rotateY(${rotateY}deg) rotateX(${rotateX}deg)`;
-            });
-        }
-
-        // Reset khi resize (rất quan trọng trên mobile)
-        window.addEventListener('resize', () => setTimeout(() => move(0,0), 300));
+        // Reset khi xoay màn hình
+        window.addEventListener('orientationchange', () => setTimeout(() => move(0,0), 400));
+        window.addEventListener('resize', () => setTimeout(() => move(0,0), 200));
+        
         move(0, 0);
     </script>
 </body>
