@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Parallax - Tốc độ ánh sáng</title>
+    <title>3D Parallax - Nghiêng sẵn 15°</title>
     <style>
         *{margin:0;padding:0;box-sizing:border-box}
-        body{
+        html,body{
+            height:100%;
             overflow:hidden;
             background:#fff;
             touch-action:pan-y;
-            -webkit-text-size-adjust:none;
         }
         .scene{
             position:fixed;
@@ -32,7 +32,6 @@
             inset:0;
             background:rgba(255,255,255,0.97);
             pointer-events:none;
-            z-index:0;
         }
         img{
             position:absolute;
@@ -45,7 +44,7 @@
             user-select:none;
             -webkit-user-drag:none;
             opacity:0;
-            transition:opacity .5s ease-out;
+            transition:opacity .6s ease-out;
         }
         img.loaded{opacity:1}
         #img1{z-index:5}#img2{z-index:4}#img3{z-index:3}#img4{z-index:2}#img5{z-index:1}
@@ -53,11 +52,10 @@
         #start{
             position:fixed;
             inset:0;
-            background:linear-gradient(135deg,#667eea,#764ba2);
+            background:linear-gradient(135deg,#ff6b6b,#feca57);
             color:#fff;
-            font-family:-apple-system,system-ui,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-            font-size:22px;
-            font-weight:600;
+            font-family:-apple-system,system-ui,sans-serif;
+            font-weight:700;
             border:none;
             z-index:9999;
             cursor:pointer;
@@ -66,30 +64,26 @@
             align-items:center;
             justify-content:center;
             gap:24px;
-            transition:opacity .6s;
         }
         #start.hide{display:none}
-        .pulse{
-            animation:pulse 2s infinite;
+        .icon{
+            font-size:72px;
+            animation:tilt 4s infinite ease-in-out;
         }
-        @keyframes pulse{
-            0%,100%{transform:scale(1)}
-            50%{transform:scale(1.1)}
+        @keyframes tilt{
+            0%,100%{transform:rotate(0deg)}
+            25%{transform:rotate(15deg)}
+            75%{transform:rotate(-10deg)}
         }
 
         @media(orientation:portrait) and (max-width:768px){
             img{transform:translate(-50%,-50%) rotate(90deg)}
         }
     </style>
-
-    <!-- Tăng tốc kết nối -->
-    <link rel="preconnect" href="https://yourdomain.com">
-    <link rel="dns-prefetch" href="https://yourdomain.com">
 </head>
 <body>
     <div class="scene">
         <div class="container">
-            <!-- WebP trong suốt + fallback PNG -->
             <img id="img5" src="img1.webp" onerror="this.src='img1.png'" alt="1">
             <img id="img4" src="img2.webp" onerror="this.src='img2.png'" alt="2">
             <img id="img3" src="img3.webp" onerror="this.src='img3.png'" alt="3">
@@ -99,8 +93,9 @@
     </div>
 
     <button id="start">
-        <div style="font-size:52px" class="pulse">Touch để bật 3D</div>
-        <div style="font-size:17px;opacity:0.9">Nghiêng máy • Xem ngay lập tức</div>
+        <div class="icon">3D Parallax</div>
+        <div style="font-size:24px">Touch để bật</div>
+        <div style="font-size:16px;opacity:0.9">Đã nghiêng sẵn 15° đẹp lung linh</div>
     </button>
 
     <script>
@@ -112,23 +107,25 @@
             {el:document.getElementById('img5'),f:1.00}
         ];
         const maxMove = 100;
-        const defaultX = 15;
-        const defaultY = -10;
+        
+        // MẶC ĐỊNH NGHIÊNG 15° SANG PHẢI + 8° LÊN TRÊN → ĐẸP NHẤT
+        const DEFAULT_X = 15;
+        const DEFAULT_Y = -8;
 
         const btn = document.getElementById('start');
-        let ok = false;
+        let granted = false;
 
-        // Góc mặc định đẹp ngay từ đầu
-        move(defaultX, defaultY);
+        // NGHIÊNG SẴN 15° NGAY TỪ GIÂY ĐẦU TIÊN
+        move(DEFAULT_X, DEFAULT_Y);
 
-        // Preload + decode siêu nhanh
+        // Preload WebP siêu nhanh
         ['img1.webp','img2.webp','img3.webp','img4.webp','img5.webp'].forEach(src=>{
             const img = new Image();
             img.src = src;
             img.decoding = 'async';
             img.onload = () => {
-                const target = document.querySelector(`[src="${src}"]`);
-                if(target) target.classList.add('loaded');
+                const el = document.querySelector(`[src="${src}"]`);
+                if(el) el.classList.add('loaded');
             };
         });
 
@@ -136,27 +133,27 @@
             if(typeof DeviceOrientationEvent?.requestPermission === 'function'){
                 DeviceOrientationEvent.requestPermission().then(r=>{
                     if(r==='granted'){
-                        ok=true;
+                        granted = true;
                         btn.classList.add('hide');
-                        run();
+                        startSensors();
                     }
-                }).catch(()=>{});
+                });
             }else{
-                ok=true;
+                granted = true;
                 btn.classList.add('hide');
-                run();
+                startSensors();
             }
         };
 
-        function run(){
+        function startSensors(){
             window.addEventListener('deviceorientation', e=>{
-                if(!ok) return;
+                if(!granted) return;
                 const x = e.gamma || 0;
                 const y = e.beta  || 0;
-                move(x*1, y*1);
+                move(x, y);
             });
 
-            // PC chuột
+            // PC vẫn dùng chuột
             document.addEventListener('mousemove', e=>{
                 const mx = (e.clientX/innerWidth - 0.5)*50;
                 const my = (e.clientY/innerHeight - 0.5)*50;
@@ -178,9 +175,9 @@
 
         // Tự chạy nếu không phải iOS
         if(!/iPad|iPhone|iPod/.test(navigator.userAgent)){
-            ok=true;
+            granted = true;
             btn.classList.add('hide');
-            run();
+            startSensors();
         }
     </script>
 </body>
