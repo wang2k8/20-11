@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Parallax - Load Đầy Đủ Layer</title>
+    <title>3D Parallax - Load Đủ 5 Layer + Icon</title>
     <style>
         *{margin:0;padding:0;box-sizing:border-box}
         body{
@@ -13,26 +13,26 @@
             font-family:-apple-system,system-ui,sans-serif;
         }
 
-        /* LOADING */
+        /* MÀN HÌNH LOADING */
         #loader{
             position:fixed;inset:0;background:#000;
             display:flex;align-items:center;justify-content:center;
-            z-index:99999;transition:opacity .6s ease-out;
+            z-index:99999;
+            transition:opacity .8s ease-out;
         }
-        .spinner{
-            width:60px;height:60px;
-            border:5px solid rgba(255,255,255,.2);
-            border-top:5px solid #fff;
-            border-radius:50%;
-            animation:spin .9s linear infinite;
+        #loader.hide{
+            opacity:0;
+            pointer-events:none;
         }
-        @keyframes spin{to{transform:rotate(360deg)}}
-        #loader.hide{opacity:0;pointer-events:none}
+        #loader img{
+            width:120px;
+            animation:none !important; /* ICON KHÔNG XOAY */
+        }
 
-        /* NỘI DUNG */
+        /* NỘI DUNG 3D */
         .scene{
             position:fixed;inset:0;perspective:1000px;
-            opacity:0;transition:opacity .8s ease;
+            opacity:0;transition:opacity 1s ease;
         }
         .scene.ready{opacity:1}
 
@@ -54,17 +54,17 @@
             max-width:100%;max-height:100%;
             object-fit:contain;
             pointer-events:none;user-select:none;-webkit-user-drag:none;
-            /* ĐÃ HIỆN LUÔN TỪ ĐẦU */
-            opacity:1 !important;
+            opacity:1;
         }
         #img1{z-index:5}#img2{z-index:4}#img3{z-index:3}#img4{z-index:2}#img5{z-index:1}
 
+        /* NÚT XIN QUYỀN */
         #btn{
-            position:fixed;inset:0;background:rgba(0,0,0,.9);
+            position:fixed;inset:0;background:rgba(0,0,0,.92);
             color:#fff;font-size:20px;border:none;z-index:9999;cursor:pointer;
             display:flex;align-items:center;justify-content:center;
             flex-direction:column;gap:20px;
-            opacity:0;transition:opacity .4s;
+            opacity:0;transition:opacity .5s;
         }
         #btn.show{opacity:1}
         #btn.hide{display:none}
@@ -76,8 +76,10 @@
 </head>
 <body>
 
-    <!-- LOADING -->
-    <div id="loader"><div class="spinner"></div></div>
+    <!-- LOADING + ICON -->
+    <div id="loader">
+        <img src="icon.png" alt="Loading">
+    </div>
 
     <!-- 3D SCENE -->
     <div class="scene" id="scene">
@@ -100,8 +102,8 @@
         const loader = document.getElementById('loader');
         const scene  = document.getElementById('scene');
         const btn    = document.getElementById('btn');
-        let loaded = 0;
-        const total = 5;
+        let loaded   = 0;
+        const total  = 5;
 
         const imgs = [
             {el:document.getElementById('img1'),f:0.10},
@@ -111,7 +113,7 @@
             {el:document.getElementById('img5'),f:1.00}
         ];
 
-        // PRELOAD + ĐẾM ĐỦ 5 ẢNH
+        // PRELOAD ĐỦ 5 ẢNH MỚI TẮT LOADING
         ['img1.webp','img2.webp','img3.webp','img4.webp','img5.webp'].forEach(src=>{
             const img = new Image();
             img.src = src;
@@ -119,28 +121,27 @@
             img.onload = img.onerror = () => {
                 loaded++;
                 if(loaded === total){
-                    // HIỆN TOÀN BỘ LAYER CÙNG LÚC
                     setTimeout(()=>{
                         loader.classList.add('hide');
                         scene.classList.add('ready');
-                        setTimeout(()=>btn.classList.add('show'), 300);
-                    }, 500);
+                        setTimeout(()=>btn.classList.add('show'), 400);
+                    }, 600);
                 }
             };
         });
 
-        // Góc mặc định đẹp ngay từ đầu
+        // Góc mặc định
         update(15, -10);
 
-        btn.onclick=()=>{
+        btn.onclick = () => {
             if(typeof DeviceOrientationEvent.requestPermission==='function'){
                 DeviceOrientationEvent.requestPermission().then(r=>{
-                    if(r==='granted') run3D();
+                    if(r==='granted') start3D();
                 });
-            }else run3D();
+            }else start3D();
         };
 
-        function run3D(){
+        function start3D(){
             btn.classList.add('hide');
             window.addEventListener('deviceorientation',e=>{
                 update((e.gamma||0)*1, (e.beta||0)*1);
@@ -164,8 +165,8 @@
 
         // Android/PC chạy luôn
         if(!/iPad|iPhone|iPod/.test(navigator.userAgent)){
-            setTimeout(()=>{ if(loaded===total){ loader.classList.add('hide'); scene.classList.add('ready'); } },1500);
-            run3D();
+            setTimeout(()=>{ if(loaded===total){ loader.classList.add('hide'); scene.classList.add('ready'); } },2000);
+            start3D();
         }
     </script>
 </body>
