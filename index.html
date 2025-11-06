@@ -3,84 +3,85 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>3D Siêu Nhanh 0.3s</title>
+    <title>3D Parallax - Load Đầy Đủ Layer</title>
     <style>
-        *{margin:0;padding:0}
+        *{margin:0;padding:0;box-sizing:border-box}
         body{
             overflow:hidden;
-            background:#fff;
+            background:#000;
             touch-action:pan-y;
+            font-family:-apple-system,system-ui,sans-serif;
         }
+
+        /* LOADING */
+        #loader{
+            position:fixed;inset:0;background:#000;
+            display:flex;align-items:center;justify-content:center;
+            z-index:99999;transition:opacity .6s ease-out;
+        }
+        .spinner{
+            width:60px;height:60px;
+            border:5px solid rgba(255,255,255,.2);
+            border-top:5px solid #fff;
+            border-radius:50%;
+            animation:spin .9s linear infinite;
+        }
+        @keyframes spin{to{transform:rotate(360deg)}}
+        #loader.hide{opacity:0;pointer-events:none}
+
+        /* NỘI DUNG */
         .scene{
-            position:fixed;
-            inset:0;
-            perspective:1000px;
+            position:fixed;inset:0;perspective:1000px;
+            opacity:0;transition:opacity .8s ease;
         }
+        .scene.ready{opacity:1}
+
         .container{
             position:absolute;
             top:50%;left:50%;
             transform:translate(-50%,-50%);
-            width:100vmin;
-            height:100vmin;
-            max-width:100vw;
-            max-height:100vh;
+            width:100vmin;height:100vmin;
+            max-width:100vw;max-height:100vh;
         }
         .container::before{
-            content:"";
-            position:absolute;
-            inset:0;
-            background:rgba(255,255,255,0.98);
-            pointer-events:none;
+            content:"";position:absolute;inset:0;
+            background:rgba(255,255,255,0.98);pointer-events:none;
         }
         img{
             position:absolute;
             top:50%;left:50%;
             transform:translate(-50%,-50%);
-            max-width:100%;
-            max-height:100%;
+            max-width:100%;max-height:100%;
             object-fit:contain;
-            pointer-events:none;
-            user-select:none;
-            -webkit-user-drag:none;
-            opacity:0;               /* Ẩn cho đến khi load xong */
-            transition:opacity .4s;
+            pointer-events:none;user-select:none;-webkit-user-drag:none;
+            /* ĐÃ HIỆN LUÔN TỪ ĐẦU */
+            opacity:1 !important;
         }
-        img.loaded{opacity:1}        /* Hiện mượt khi load xong */
-
         #img1{z-index:5}#img2{z-index:4}#img3{z-index:3}#img4{z-index:2}#img5{z-index:1}
 
         #btn{
-            position:fixed;
-            inset:0;
-            background:rgba(0,0,0,0.85);
-            color:#fff;
-            font-size:20px;
-            border:none;
-            z-index:9999;
-            cursor:pointer;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            flex-direction:column;
-            gap:20px;
+            position:fixed;inset:0;background:rgba(0,0,0,.9);
+            color:#fff;font-size:20px;border:none;z-index:9999;cursor:pointer;
+            display:flex;align-items:center;justify-content:center;
+            flex-direction:column;gap:20px;
+            opacity:0;transition:opacity .4s;
         }
+        #btn.show{opacity:1}
         #btn.hide{display:none}
 
         @media(orientation:portrait) and (max-width:768px){
             img{transform:translate(-50%,-50%) rotate(90deg)}
         }
     </style>
-
-    <!-- 1. Preconnect đến CDN (nếu dùng) -->
-    <link rel="preconnect" href="https://cdn.jsdelivr.net">
-
-    <!-- 2. DNS-prefetch toàn bộ domain ảnh -->
-    <link rel="dns-prefetch" href="//yourdomain.com">
 </head>
 <body>
-    <div class="scene">
+
+    <!-- LOADING -->
+    <div id="loader"><div class="spinner"></div></div>
+
+    <!-- 3D SCENE -->
+    <div class="scene" id="scene">
         <div class="container">
-            <!-- 3. Dùng WebP siêu nhẹ + fallback PNG -->
             <img id="img5" src="img1.webp" onerror="this.src='img1.png'" alt="1">
             <img id="img4" src="img2.webp" onerror="this.src='img2.png'" alt="2">
             <img id="img3" src="img3.webp" onerror="this.src='img3.png'" alt="3">
@@ -89,12 +90,19 @@
         </div>
     </div>
 
+    <!-- NÚT iOS -->
     <button id="btn">
         <div style="font-size:48px;">Touch để bật 3D</div>
-        <div style="font-size:16px;opacity:0.8;">Đã tối ưu tốc độ lightning</div>
+        <div style="font-size:16px;opacity:0.8;">Nghiêng máy là bay</div>
     </button>
 
     <script>
+        const loader = document.getElementById('loader');
+        const scene  = document.getElementById('scene');
+        const btn    = document.getElementById('btn');
+        let loaded = 0;
+        const total = 5;
+
         const imgs = [
             {el:document.getElementById('img1'),f:0.10},
             {el:document.getElementById('img2'),f:0.30},
@@ -102,52 +110,41 @@
             {el:document.getElementById('img4'),f:0.80},
             {el:document.getElementById('img5'),f:1.00}
         ];
-        const maxMove=100;
-        const defaultX=15;
-        const defaultY=-10;
 
-        const btn=document.getElementById('btn');
-        let permission=false;
-
-        // 4. Preload + decode ngay khi mở trang (tăng tốc 300%)
-        const sources = ['img1.webp','img2.webp','img3.webp','img4.webp','img5.webp'];
-        sources.forEach(src=>{
+        // PRELOAD + ĐẾM ĐỦ 5 ẢNH
+        ['img1.webp','img2.webp','img3.webp','img4.webp','img5.webp'].forEach(src=>{
             const img = new Image();
             img.src = src;
             img.decoding = 'async';
-            img.onload = ()=> {
-                // Khi load xong thì hiện ảnh mượt mà
-                document.querySelector(`[src="${src}"]`)?.classList.add('loaded');
+            img.onload = img.onerror = () => {
+                loaded++;
+                if(loaded === total){
+                    // HIỆN TOÀN BỘ LAYER CÙNG LÚC
+                    setTimeout(()=>{
+                        loader.classList.add('hide');
+                        scene.classList.add('ready');
+                        setTimeout(()=>btn.classList.add('show'), 300);
+                    }, 500);
+                }
             };
         });
 
-        // Góc mặc định
-        update(defaultX, defaultY);
+        // Góc mặc định đẹp ngay từ đầu
+        update(15, -10);
 
         btn.onclick=()=>{
             if(typeof DeviceOrientationEvent.requestPermission==='function'){
                 DeviceOrientationEvent.requestPermission().then(r=>{
-                    if(r==='granted'){
-                        permission=true;
-                        btn.classList.add('hide');
-                        start();
-                    }
+                    if(r==='granted') run3D();
                 });
-            }else{
-                permission=true;
-                btn.classList.add('hide');
-                start();
-            }
+            }else run3D();
         };
 
-        function start(){
+        function run3D(){
+            btn.classList.add('hide');
             window.addEventListener('deviceorientation',e=>{
-                if(!permission) return;
-                const x=e.gamma||0;
-                const y=e.beta||0;
-                update(x*1,y*1);
+                update((e.gamma||0)*1, (e.beta||0)*1);
             });
-
             document.addEventListener('mousemove',e=>{
                 const mx=(e.clientX/innerWidth-0.5)*50;
                 const my=(e.clientY/innerHeight-0.5)*50;
@@ -156,28 +153,20 @@
         }
 
         function update(dx,dy){
-            imgs.forEach(i=>{
-                const ex=Math.tanh(dx*i.f/maxMove)*maxMove;
-                const ey=Math.tanh(dy*i.f/maxMove)*maxMove;
-                const rot=dx*0.05;
-                i.el.style.transform=`translate(-50%,-50%) translate(${ex}px,${ey}px) rotate(${rot}deg)`;
+            requestAnimationFrame(()=>{
+                imgs.forEach(i=>{
+                    const ex=Math.tanh(dx*i.f/100)*100;
+                    const ey=Math.tanh(dy*i.f/100)*100;
+                    i.el.style.transform=`translate(-50%,-50%) translate(${ex}px,${ey}px) rotate(${dx*0.05}deg)`;
+                });
             });
         }
 
-        // 5. Tự chạy nếu không phải iOS
+        // Android/PC chạy luôn
         if(!/iPad|iPhone|iPod/.test(navigator.userAgent)){
-            permission=true;
-            btn.classList.add('hide');
-            start();
+            setTimeout(()=>{ if(loaded===total){ loader.classList.add('hide'); scene.classList.add('ready'); } },1500);
+            run3D();
         }
-
-        // 6. Tối ưu JS: requestAnimationFrame (mượt hơn 60fps)
-        const originalUpdate = update;
-        update = (dx,dy) => requestAnimationFrame(()=>originalUpdate(dx,dy));
-
-        // 7. Nén ảnh thực tế (hướng dẫn nhanh)
-        // → Dùng https://squoosh.app → chọn WebP + chất lượng 75 → dung lượng giảm 80%
-        // → 5 ảnh gốc 15MB → còn 1.2MB → load 0.3s trên 4G VN!
     </script>
 </body>
 </html>
