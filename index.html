@@ -29,6 +29,12 @@
         #img3 { z-index: 3; }
         #img4 { z-index: 2; }
         #img5 { z-index: 1; }
+        /* Trên điện thoại, rotate ảnh để nằm ngang nếu cần */
+        @media (orientation: portrait) and (max-width: 768px) {
+            img {
+                transform: translate(-50%, -50%) rotate(90deg);
+            }
+        }
     </style>
 </head>
 <body>
@@ -75,7 +81,12 @@
                 // Áp dụng easing với tanh để giới hạn và giảm dần khi gần biên
                 const easedX = Math.tanh(deltaX * img.factor / maxMove) * maxMove;
                 const easedY = Math.tanh(deltaY * img.factor / maxMove) * maxMove;
-                img.el.style.transform = `translate(-50%, -50%) translate(${easedX}px, ${easedY}px)`;
+                // Trên mobile, thêm rotate dựa trên gamma để tạo cảm giác 3D hơn
+                let rotate = 0;
+                if (isMobile) {
+                    rotate = deltaX * 0.1; // Rotate nhẹ dựa trên nghiêng trái/phải
+                }
+                img.el.style.transform = `translate(-50%, -50%) translate(${easedX}px, ${easedY}px) rotate(${rotate}deg)`;
             });
         }
     </script>
