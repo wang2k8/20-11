@@ -2,20 +2,21 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=10">
     <title>Khoảnh Khắc Bên Thầy Cô - 12a1</title>
     <style>
         *{margin:0;padding:0;box-sizing:border-box}
-        body{
+        html,body{
+            height:100%;
             overflow:hidden;
             background:#fff;
-            touch-action:pan-y;
-            -webkit-text-size-adjust:none;
+            touch-action:none; /* quan trọng để pinch mượt */
         }
         .scene{
             position:fixed;
             inset:0;
             perspective:1200px;
+            overflow:hidden;
         }
         .container{
             position:absolute;
@@ -25,6 +26,8 @@
             height:100vmin;
             max-width:100vw;
             max-height:100vh;
+            transform-origin:center center;
+            transition:transform .3s ease-out;
         }
         .container::before{
             content:"";
@@ -32,7 +35,6 @@
             inset:0;
             background:rgba(255,255,255,0.97);
             pointer-events:none;
-            z-index:0;
         }
         img{
             position:absolute;
@@ -45,7 +47,7 @@
             user-select:none;
             -webkit-user-drag:none;
             opacity:0;
-            transition:opacity .5s ease-out;
+            transition:opacity .6s ease-out;
         }
         img.loaded{opacity:1}
         #img1{z-index:5}#img2{z-index:4}#img3{z-index:3}#img4{z-index:2}#img5{z-index:1}
@@ -55,9 +57,8 @@
             inset:0;
             background:linear-gradient(135deg,#667eea,#764ba2);
             color:#fff;
-            font-family:-apple-system,system-ui,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-            font-size:22px;
-            font-weight:600;
+            font-family:-apple-system,system-ui,sans-serif;
+            font-weight:700;
             border:none;
             z-index:9999;
             cursor:pointer;
@@ -66,30 +67,23 @@
             align-items:center;
             justify-content:center;
             gap:24px;
-            transition:opacity .6s;
         }
         #start.hide{display:none}
-        .pulse{
-            animation:pulse 2s infinite;
-        }
-        @keyframes pulse{
-            0%,100%{transform:scale(1)}
-            50%{transform:scale(1.1)}
+        .icon{font-size:68px;animation:tilt 4s infinite ease-in-out}
+        @keyframes tilt{
+            0%,100%{transform:rotate(0deg)}
+            25%{transform:rotate(15deg)}
+            75%{transform:rotate(-10deg)}
         }
 
         @media(orientation:portrait) and (max-width:768px){
             img{transform:translate(-50%,-50%) rotate(90deg)}
         }
     </style>
-
-    <!-- Tăng tốc kết nối -->
-    <link rel="preconnect" href="https://yourdomain.com">
-    <link rel="dns-prefetch" href="https://yourdomain.com">
 </head>
 <body>
-    <div class="scene">
-        <div class="container">
-            <!-- WebP trong suốt + fallback PNG -->
+    <div class="scene" id="scene">
+        <div class="container" id="container">
             <img id="img5" src="img1.webp" onerror="this.src='img1.png'" alt="1">
             <img id="img4" src="img2.webp" onerror="this.src='img2.png'" alt="2">
             <img id="img3" src="img3.webp" onerror="this.src='img3.png'" alt="3">
@@ -99,8 +93,9 @@
     </div>
 
     <button id="start">
-        <div style="font-size:52px" class="pulse">Touch để bật 3D</div>
-        <div style="font-size:17px;opacity:0.9">Nghiêng máy • Xem ngay lập tức</div>
+        <div class="icon">3D ZOOM</div>
+        <div style="font-size:24px">Touch để bật</div>
+        <div style="font-size:16px;opacity:0.9">Pinch để zoom • Double-tap x2</div>
     </button>
 
     <script>
@@ -111,49 +106,48 @@
             {el:document.getElementById('img4'),f:0.80},
             {el:document.getElementById('img5'),f:1.00}
         ];
-        const maxMove = 18;
-        const defaultX = 16;
-        const defaultY = -12;
+        const maxMove = 100;
+        const DEFAULT_X = 15;
+        const DEFAULT_Y = -8;
 
         const btn = document.getElementById('start');
-        let ok = false;
+        const container = document.getElementById('container');
+        const scene = document.getElementById('scene');
+        let granted = false;
 
-        // Góc mặc định đẹp ngay từ đầu
-        move(defaultX, defaultY);
+        // === NGHIÊNG SẴN 15° ===
+        move(DEFAULT_X, DEFAULT_Y);
 
-        // Preload + decode siêu nhanh
+        // === PRELOAD WEBP ===
         ['img1.webp','img2.webp','img3.webp','img4.webp','img5.webp'].forEach(src=>{
             const img = new Image();
             img.src = src;
             img.decoding = 'async';
-            img.onload = () => {
-                const target = document.querySelector(`[src="${src}"]`);
-                if(target) target.classList.add('loaded');
-            };
+            img.onload = () => document.querySelector(`[src="${src}"]`)?.classList.add('loaded');
         });
 
+        // === XIN QUYỀN & BẬT ===
         btn.onclick = () => {
             if(typeof DeviceOrientationEvent?.requestPermission === 'function'){
                 DeviceOrientationEvent.requestPermission().then(r=>{
                     if(r==='granted'){
-                        ok=true;
+                        granted = true;
                         btn.classList.add('hide');
-                        run();
+                        startAll();
                     }
-                }).catch(()=>{});
+                });
             }else{
-                ok=true;
+                granted = true;
                 btn.classList.add('hide');
-                run();
+                startAll();
             }
         };
 
-        function run(){
+        function startAll(){
+            // Gyro
             window.addEventListener('deviceorientation', e=>{
-                if(!ok) return;
-                const x = e.gamma || 0;
-                const y = e.beta  || 0;
-                move(x*1, y*1);
+                if(!granted) return;
+                move(e.gamma||0, e.beta||0);
             });
 
             // PC chuột
@@ -162,6 +156,67 @@
                 const my = (e.clientY/innerHeight - 0.5)*50;
                 move(mx, my);
             });
+
+            // === ZOOM + PAN (dùng Hammer.js thuần JS, không cần thư viện) ===
+            let scale = 1;
+            let posX = 0, posY = 0;
+            let startX, startY, startScale;
+
+            scene.addEventListener('wheel', e=>{
+                e.preventDefault();
+                scale = Math.max(0.5, Math.min(6, scale - e.deltaY*0.005));
+                updateTransform();
+            });
+
+            scene.addEventListener('gesturestart', e=>e.preventDefault());
+            scene.addEventListener('gesturechange', e=>e.preventDefault());
+
+            let lastTap = 0;
+            scene.addEventListener('touchstart', e=>{
+                if(e.touches.length === 2){
+                    e.preventDefault();
+                    startScale = scale;
+                    const t1 = e.touches[0], t2 = e.touches[1];
+                    startX = (t1.clientX + t2.clientX)/2;
+                    startY = (t1.clientY + t2.clientY)/2;
+                }
+                // Double-tap zoom x2
+                const now = Date.now();
+                if(now - lastTap < 300){
+                    scale = scale < 1.5 ? 2.5 : 1;
+                    posX = posY = 0;
+                    updateTransform();
+                }
+                lastTap = now;
+            });
+
+            scene.addEventListener('touchmove', e=>{
+                if(e.touches.length === 2){
+                    e.preventDefault();
+                    const t1 = e.touches[0], t2 = e.touches[1];
+                    const currentDist = Math.hypot(t1.clientX-t2.clientX, t1.clientY-t2.clientY);
+                    const startDist = Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX + startX*2 - startX*2,
+                        e.touches[0].clientY - e.touches[1].clientY + startY*2 - startY*2
+                    );
+                    const newScale = startScale * (currentDist / Math.hypot(
+                        e.touches[0].clientX - e.touches[1].clientX + 100,
+                        e.touches[0].clientY - e.touches[1].clientY + 100
+                    ));
+                    scale = Math.max(0.5, Math.min(6, newScale || scale));
+
+                    // Pan khi zoom
+                    posX = (t1.clientX + t2.clientX)/2 - startX;
+                    posY = (t1.clientY + t2.clientY)/2 - startY;
+
+                    updateTransform();
+                }
+            });
+
+            function updateTransform(){
+                container.style.transform = 
+                    `translate(-50%,-50%) scale(${scale}) translate(${posX/scale}px,${posY/scale}px)`;
+            }
         }
 
         function move(dx, dy){
@@ -176,13 +231,12 @@
             });
         }
 
-        // Tự chạy nếu không phải iOS
+        // Tự chạy nếu Android/PC
         if(!/iPad|iPhone|iPod/.test(navigator.userAgent)){
-            ok=true;
+            granted = true;
             btn.classList.add('hide');
-            run();
+            startAll();
         }
     </script>
 </body>
 </html>
-
