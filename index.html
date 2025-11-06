@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bug ver 54</title>
+    <title>ver54</title>
     <style>
         body {
             margin: 0;
             overflow: hidden;
-            background: #ffffff; /* Đổi thành trắng */
+            background: #000;
         }
         .container {
             position: relative;
@@ -23,17 +23,13 @@
             max-width: 100%;
             max-height: 100%;
             pointer-events: none;
-            /* Thêm bóng nhẹ để layer nổi bật trên nền trắng */
-            filter: drop-shadow(0 10px 30px rgba(0,0,0,0.15));
-            transition: filter 0.3s ease;
         }
         #img1 { z-index: 5; }
         #img2 { z-index: 4; }
         #img3 { z-index: 3; }
         #img4 { z-index: 2; }
         #img5 { z-index: 1; }
-
-        /* Trên điện thoại, xoay ảnh nằm ngang nếu cần */
+        /* Trên điện thoại, rotate ảnh để nằm ngang nếu cần */
         @media (orientation: portrait) and (max-width: 768px) {
             img {
                 transform: translate(-50%, -50%) rotate(90deg);
@@ -52,47 +48,47 @@
 
     <script>
         const imgs = [
-            { el: document.getElementById('img1'), factor: 0.1 }, // Gần nhất
+            { el: document.getElementById('img1'), factor: 0.1 }, // Gần nhất, di chuyển ít nhất
             { el: document.getElementById('img2'), factor: 0.3 },
-            { el: document.getElementById('img3'), factor: 0.6 },
+            { el: document.getElementById('img3'), factor: 0.6 }, // Ảnh to hơn, cường độ cao hơn
             { el: document.getElementById('img4'), factor: 0.8 },
-            { el: document.getElementById('img5'), factor: 1.0 }  // Xa nhất
+            { el: document.getElementById('img5'), factor: 1.0 }  // Xa nhất, di chuyển nhiều nhất
         ];
 
-        const maxMove = 100; // px
+        const maxMove = 100; // Giới hạn di chuyển tối đa (px) cho img5
 
         let isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
         if (isMobile) {
+            // Sử dụng DeviceOrientation cho điện thoại
             window.addEventListener('deviceorientation', (event) => {
-                const gamma = event.gamma || 0; // trái-phải
-                const beta  = event.beta  || 0; // trước-sau
-                updateParallax(gamma * 2, beta * 2);
+                const gamma = event.gamma; // Nghiêng trái/phải (-90 to 90)
+                const beta = event.beta;   // Nghiêng trước/sau (-180 to 180)
+                // Sử dụng gamma cho hiệu ứng trái/phải, beta cho trên/dưới
+                updateParallax(gamma * 2, beta * 2); // Nhân 2 để tăng cường độ
             });
         } else {
+            // Sử dụng mouse move cho máy tính
             document.addEventListener('mousemove', (event) => {
-                const mouseX = (event.clientX / window.innerWidth - 0.5) * 2;
+                const mouseX = (event.clientX / window.innerWidth - 0.5) * 2; // -1 to 1
                 const mouseY = (event.clientY / window.innerHeight - 0.5) * 2;
-                updateParallax(mouseX * 50, mouseY * 50);
+                updateParallax(mouseX * 50, mouseY * 50); // Nhân để tăng cường độ
             });
         }
 
         function updateParallax(deltaX, deltaY) {
             imgs.forEach(img => {
+                // Áp dụng easing với tanh để giới hạn và giảm dần khi gần biên
                 const easedX = Math.tanh(deltaX * img.factor / maxMove) * maxMove;
                 const easedY = Math.tanh(deltaY * img.factor / maxMove) * maxMove;
-
+                // Trên mobile, thêm rotate dựa trên gamma để tạo cảm giác 3D hơn
                 let rotate = 0;
                 if (isMobile) {
-                    rotate = deltaX * 0.1;
+                    rotate = deltaX * 0.1; // Rotate nhẹ dựa trên nghiêng trái/phải
                 }
-
-                img.el.style.transform = 
-                    `translate(-50%, -50%) translate(${easedX}px, ${easedY}px) rotate(${rotate}deg)`;
+                img.el.style.transform = `translate(-50%, -50%) translate(${easedX}px, ${easedY}px) rotate(${rotate}deg)`;
             });
         }
     </script>
 </body>
 </html>
-
-
