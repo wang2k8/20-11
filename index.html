@@ -1,115 +1,168 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Khoảnh Khắc Bên Thầy Cô - 12A1</title>
-<style>
-  body {
-    margin: 0;
-    overflow: hidden;
-    background: #ffffff;
-  }
-  .container {
-    position: relative;
-    width: 100vw;
-    height: 100vh;
-    background: #ffffff;
-  }
-  img {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    max-width: 100%;
-    max-height: 100%;
-    pointer-events: none;
-  }
-  #enableMotion {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    background: #000;
-    color: #fff;
-    font-size: 18px;
-    padding: 12px 20px;
-    border-radius: 12px;
-    cursor: pointer;
-    z-index: 999;
-  }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Khoảnh Khắc Bên Thầy Cô - 12A1</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #ffffff;
+            font-family: -apple-system, sans-serif;
+        }
+        .container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            background: #ffffff;
+        }
+        .container::before {
+            content: "";
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(255,255,255,0.98);
+            z-index: 0;
+            pointer-events: none;
+        }
+        img {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            max-width: 100%;
+            max-height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+        #img1 { z-index: 5; }
+        #img2 { z-index: 4; }
+        #img3 { z-index: 3; }
+        #img4 { z-index: 2; }
+        #img5 { z-index: 1; }
+
+        /* Nút xin quyền đẹp kiểu iOS */
+        #permissionBtn {
+            position: fixed;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 14px 32px;
+            background: #007AFF;
+            color: white;
+            border: none;
+            border-radius: 16px;
+            font-size: 17px;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(0,122,255,0.4);
+            z-index: 999;
+            cursor: pointer;
+            opacity: 0;
+            transition: opacity 0.4s;
+        }
+        #permissionBtn.show { opacity: 1; }
+
+        @media (orientation: portrait) and (max-width: 768px) {
+            img { transform: translate(-50%, -50%) rotate(90deg); }
+        }
+    </style>
 </head>
 <body>
-<div class="container">
-  <img id="img5" src="img1.png" alt="Image 1">
-  <img id="img4" src="img2.png" alt="Image 2">
-  <img id="img3" src="img3.png" alt="Image 3">
-  <img id="img2" src="img4.png" alt="Image 4">
-  <img id="img1" src="img5.png" alt="Image 5">
-  <div id="enableMotion">Bật cảm biến</div>
-</div>
+    <div class="container">
+        <img id="img5" src="img1.png" alt="1">
+        <img id="img4" src="img2.png" alt="2">
+        <img id="img3" src="img3.png" alt="3">
+        <img id="img2" src="img4.png" alt="4">
+        <img id="img1" src="img5.png" alt="5">
+    </div>
 
-<script>
-const imgs = [
-  { el: document.getElementById('img1'), factor: 0.1 },
-  { el: document.getElementById('img2'), factor: 0.3 },
-  { el: document.getElementById('img3'), factor: 0.6 },
-  { el: document.getElementById('img4'), factor: 0.8 },
-  { el: document.getElementById('img5'), factor: 1.0 }
-];
+    <!-- Nút xin quyền chỉ hiện trên iOS -->
+    <button id="permissionBtn">Bật cảm biến chuyển động</button>
 
-const maxMove = 18;
-const defaultGamma = 15;
-const defaultBeta  = -10;
+    <script>
+        const imgs = [
+            { el: document.getElementById('img1'), factor: 0.1 },
+            { el: document.getElementById('img2'), factor: 0.3 },
+            { el: document.getElementById('img3'), factor: 0.6 },
+            { el: document.getElementById('img4'), factor: 0.8 },
+            { el: document.getElementById('img5'), factor: 1.0 }
+        ];
+        const maxMove = 100;
 
-let isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        // Góc mặc định đẹp
+        const defaultGamma = 15;
+        const defaultBeta  = -10;
+        updateParallax(defaultGamma * 1, defaultBeta * 1);
 
-// Áp dụng góc mặc định ban đầu
-updateParallax(defaultGamma, defaultBeta);
+        // Phát hiện iOS 13+
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+        const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        const needsPermission = isIOS && typeof DeviceOrientationEvent.requestPermission === 'function';
 
-function enableMotion() {
-  const btn = document.getElementById('enableMotion');
-  btn.style.display = 'none';
+        const btn = document.getElementById('permissionBtn');
 
-  if (typeof DeviceOrientationEvent !== 'undefined' &&
-      typeof DeviceOrientationEvent.requestPermission === 'function') {
-    // iOS 13+
-    DeviceOrientationEvent.requestPermission()
-      .then(response => {
-        if (response === 'granted') {
-          window.addEventListener('deviceorientation', handleOrientation);
-        } else {
-          alert('Bạn cần cho phép quyền cảm biến để xem hiệu ứng.');
+        if (needsPermission) {
+            btn.classList.add('show'); // Hiện nút
         }
-      })
-      .catch(console.error);
-  } else {
-    // Android hoặc trình duyệt khác
-    window.addEventListener('deviceorientation', handleOrientation);
-  }
-}
 
-function handleOrientation(event) {
-  const gamma = event.gamma || 0;
-  const beta = event.beta || 0;
-  updateParallax(gamma, beta);
-}
+        let isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
-function updateParallax(deltaX, deltaY) {
-  imgs.forEach(img => {
-    const easedX = Math.tanh(deltaX * img.factor / maxMove) * maxMove;
-    const easedY = Math.tanh(deltaY * img.factor / maxMove) * maxMove;
-    let rotate = 0;
-    if (isMobile) rotate = deltaX * 0.05;
-    img.el.style.transform = 
-      `translate(-50%, -50%) translate(${easedX}px, ${easedY}px) rotate(${rotate}deg)`;
-  });
-}
+        function startSensors() {
+            if (needsPermission) {
+                DeviceOrientationEvent.requestPermission()
+                    .then(response => {
+                        if (response === 'granted') {
+                            btn.style.display = 'none';
+                            addMobileListener();
+                        }
+                    })
+                    .catch(console.error);
+            } else {
+                addMobileListener();
+            }
+        }
 
-// Gán nút
-document.getElementById('enableMotion').addEventListener('click', enableMotion);
-</script>
+        function addMobileListener() {
+            window.addEventListener('deviceorientation', handleOrientation);
+        }
+
+        function handleOrientation(event) {
+            if (event.gamma !== null && event.beta !== null) {
+                const gamma = event.gamma;
+                const beta  = event.beta;
+                updateParallax(gamma * 1, beta * 1); // vẫn giữ 50% độ nhạy
+            }
+        }
+
+        // PC vẫn dùng chuột
+        if (!isMobile) {
+            document.addEventListener('mousemove', (e) => {
+                const mouseX = (e.clientX / window.innerWidth - 0.5) * 2;
+                const mouseY = (e.clientY / window.innerHeight - 0.5) * 2;
+                updateParallax(mouseX * 25, mouseY * 25);
+            });
+        }
+
+        // Click nút → xin quyền
+        btn.addEventListener('click', startSensors);
+
+        // Tự động xin quyền nếu người dùng chạm màn hình (iOS cho phép)
+        window.addEventListener('touchstart', function autoRequest() {
+            if (needsPermission && btn.classList.contains('show')) {
+                startSensors();
+                window.removeEventListener('touchstart', autoRequest);
+            }
+        });
+
+        function updateParallax(deltaX, deltaY) {
+            imgs.forEach(img => {
+                const easedX = Math.tanh(deltaX * img.factor / maxMove) * maxMove;
+                const easedY = Math.tanh(deltaY * img.factor / maxMove) * maxMove;
+                let rotate = isMobile ? deltaX * 0.05 : 0;
+                img.el.style.transform = 
+                    `translate(-50%, -50%) translate(${easedX}px, ${easedY}px) rotate(${rotate}deg)`;
+            });
+        }
+    </script>
 </body>
 </html>
-
